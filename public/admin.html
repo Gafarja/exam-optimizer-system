@@ -15,18 +15,28 @@
         .stat-card { background: #E2F0E5; padding: 15px 25px; border-radius: 8px; border-left: 5px solid #1F4E30; flex: 1; }
         .stat-card h3 { margin: 0; color: #1F4E30; font-size: 13px; text-transform: uppercase; }
         .stat-card p { margin: 5px 0 0 0; font-size: 26px; font-weight: bold; color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 1rem;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; white-space: nowrap; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
         th { background-color: #f1f5f9; color: #475569; font-weight: 600; }
         tr:hover { background-color: #f8fafc; }
-        .action-btn { background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 12px; display: inline-block; }
+        
+        .action-container { display: flex; gap: 8px; align-items: center; }
+        .action-btn { background-color: #2563eb; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: 600; display: inline-block; }
         .action-btn:hover { background-color: #1d4ed8; }
-        .table-responsive {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    margin-bottom: 1rem;
-}
+        .delete-btn { background-color: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; display: inline-block; }
+        .delete-btn:hover { background-color: #b91c1c; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .admin-container { padding: 15px; margin: 10px auto; }
+        }
     </style>
 </head>
 <body>
@@ -37,7 +47,6 @@
                 <h1>Exam Officer Control Dashboard</h1>
                 <p style="color: #64748b; margin: 5px 0 0 0;">Review and optimize incoming papers for The Noble Standard Schools.</p>
             </div>
-            <!-- Direct anchor link to login page -->
             <a href="/auth.html#login" class="logout-btn">Log Out</a>
         </div>
 
@@ -49,31 +58,52 @@
         </div>
 
         <h2>Incoming Papers Queue</h2>
-            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table style="width: 100%; min-width: 600px;">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Teacher Name</th>
-                            <th>Subject</th>
-                            <th>Class</th>
-                            <th>Term</th>
-                            <th>Session</th>
-                            <th>Action</th>
-                            <td>
-                                <button onclick="adminDelete('${row.id}')" style="background-color: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px;">Delete</button>
-                            </td>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-table-rows">
-                        <tr>
-                            <td colspan="7" style="text-align:center; color:#94a3b8;">Loading queue data...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Teacher Name</th>
+                        <th>Subject</th>
+                        <th>Class</th>
+                        <th>Term</th>
+                        <th>Session</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-table-rows">
+                    <tr>
+                        <td colspan="7" style="text-align:center; color:#94a3b8;">Loading queue data...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
+
 <script>
+    // Global Admin Delete Function so it's accessible onclick from table rows
+    async function adminDelete(examId) {
+        if (!confirm("Are you sure you want to delete this exam paper from the system queue?")) return;
+
+        try {
+            const response = await fetch('/api/admin/delete-exam', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ examId: examId })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                alert(result.message);
+                location.reload(); // Refresh the queue instantly
+            } else {
+                alert("Deletion Failed: " + result.error);
+            }
+        } catch (err) {
+            alert("Server connection error during deletion.");
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch('/api/submissions');
@@ -107,33 +137,15 @@
                         <td>${exam.term || 'N/A'}</td>
                         <td>${exam.session_year || 'N/A'}</td>
                         <td>
-                            <a href="/api/download/${exam.id}" target="_blank" class="action-btn">Optimize / Print</a>
+                            <div class="action-container">
+                                <a href="/api/download/${exam.id}" target="_blank" class="action-btn">Optimize / Print</a>
+                                <button class="delete-btn" onclick="adminDelete('${exam.id}')">Delete</button>
+                            </div>
                         </td>
                     `;
                     queueTableBody.appendChild(tr);
                 });
             }
-            async function adminDelete(examId) {
-    if (!confirm("Are you sure you want to delete this exam paper from the system queue?")) return;
-
-    try {
-        const response = await fetch('/api/admin/delete-exam', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ examId: examId })
-        });
-        const result = await response.json();
-
-        if (result.success) {
-            alert(result.message);
-            location.reload(); // Refresh the queue instantly
-        } else {
-            alert("Deletion Failed: " + result.error);
-        }
-    } catch (err) {
-        alert("Server connection error during deletion.");
-    }
-}
         } catch (err) {
             console.error("Dashboard error:", err);
         }
