@@ -105,6 +105,7 @@ function generatePrintTemplate(metadata, auditResults) {
     <html lang="en">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${metadata.subject} Exam Paper</title>
         <style>
             /* Base Paper Styles */
@@ -143,7 +144,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 min-height: 297mm;
                 margin: 30px auto; 
                 background: #fff;
-                padding: 0;
+                padding: 20mm;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15); /* Gives realistic paper shadow edge depth */
                 box-sizing: border-box;
                 position: relative;
@@ -184,6 +185,58 @@ function generatePrintTemplate(metadata, auditResults) {
             .page-footer { position: fixed; bottom: -10mm; left: 0; right: 0; text-align: center; font-size: 10pt; font-weight: bold; }
             .page-footer::after { counter-increment: pageNumber; content: "Page " counter(pageNumber); }
 
+            /* MOBILE RESPONSIVE ADAPTATION FOR EXAM OFFICER VIEW */
+            @media screen and (max-width: 800px) {
+                html, body {
+                    background-color: #ffffff;
+                    padding: 0;
+                    margin: 0;
+                }
+                .officer-alert-box {
+                    max-width: 100%;
+                    margin: 10px;
+                    padding: 10px;
+                    font-size: 10pt;
+                }
+                .print-canvas {
+                    width: 100% !important;
+                    min-height: auto;
+                    margin: 0 !important;
+                    padding: 12px !important;
+                    box-shadow: none !important;
+                }
+                .header-table {
+                    width: 100%;
+                }
+                .logo-cell {
+                    width: 50px;
+                    padding-right: 8px;
+                }
+                .logo-img {
+                    width: 50px;
+                }
+                .title-cell {
+                    padding-right: 50px;
+                }
+                .school-title {
+                    font-size: 14pt;
+                }
+                .term-title {
+                    font-size: 10pt;
+                }
+                .subject-title {
+                    font-size: 11pt;
+                }
+                .meta-row {
+                    font-size: 9pt;
+                    flex-direction: column;
+                    gap: 3px;
+                }
+                .two-column-zone {
+                    column-count: 1 !important; /* Switch to single column stack on mobile for crystal clear legibility */
+                }
+            }
+
             /* PRINT PRODUCTION EXECUTION: Strips away browser shadow boxes and outputs pure A4 pages */
             @media print {
                 html, body { background-color: #fff; background: none; }
@@ -192,7 +245,7 @@ function generatePrintTemplate(metadata, auditResults) {
                     width: 100%;
                     box-shadow: none;
                     margin: 0;
-                    padding: 0;
+                    padding: 20mm;
                 }
             }
         </style>
