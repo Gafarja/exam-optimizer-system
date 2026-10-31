@@ -4,7 +4,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
-const Formatter = require('./Formatter');
+const formatter = require('./formatter'); // Lowercase f
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -296,6 +296,7 @@ app.get('/api/download/:id', async (req, res) => {
 });
 
 // Start Server Listen Execution Engine
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 System Pipeline Active at: http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
