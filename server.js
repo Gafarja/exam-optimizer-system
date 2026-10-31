@@ -100,7 +100,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ==========================================
-// 3. EXAM FILE PROCESSING PIPELINE ENDPOINT (Robust Session Fallback)
+// 3. EXAM FILE PROCESSING PIPELINE ENDPOINT (Success Popup & Redirect)
 // ==========================================
 app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
     const { subject, grade, term, session_year, duration, teacherName } = req.body;
@@ -131,20 +131,13 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
             console.log("✅ Exam record successfully saved to Supabase database!");
         }
 
-        // 1. Extract raw structural text characters out from the Word document
-        const rawText = await formatter.extractTextFromDocx(file.path);
-        
-        // 2. Process text strings through the smart auditor engine
-        const auditResults = formatter.optimizeExamText(rawText);
-        
-        // 3. Construct HTML print view template passing curriculum parameters
-        const htmlOutput = formatter.generatePrintTemplate(
-            { subject, grade, term, session_year, duration },
-            auditResults
-        );
-
-        // Serve output directly to the client browser view screen context
-        res.send(htmlOutput);
+        // Return a successful submission popup alert and redirect right back to the teacher portal dashboard
+        res.send(`
+            <script>
+                alert("Exam paper compiled and submitted successfully!");
+                window.location.href = '/teacher.html';
+            </script>
+        `);
 
     } catch (err) {
         console.error(err);
@@ -172,7 +165,7 @@ app.get('/api/teacher-history', async (req, res) => {
 });
 
 // ==========================================
-// 5. EXAM OFFICER DASHBOARD QUEUE ENDPOINTS (Multi-alias & Direct Array Format)
+// 5. EXAM OFFICER DASHBOARD QUEUE ENDPOINTS
 // ==========================================
 const fetchAllExams = async (req, res) => {
     try {
@@ -183,7 +176,6 @@ const fetchAllExams = async (req, res) => {
 
         if (error) throw error;
         
-        // Return the raw array directly so admin.html loops through it successfully
         res.json(data || []);
     } catch (err) {
         console.error("Dashboard fetch error:", err.message);
@@ -191,7 +183,6 @@ const fetchAllExams = async (req, res) => {
     }
 };
 
-// Cover all possible route names your frontend might be fetching
 app.get('/api/submissions', fetchAllExams);
 app.get('/api/exams', fetchAllExams);
 app.get('/api/admin/exams', fetchAllExams);
@@ -208,13 +199,11 @@ app.post('/api/delete-exam', async (req, res) => {
     }
 
     try {
-        // Authenticate this specific server action context with Supabase RLS
         await supabase.auth.setSession({
             access_token: activeUserToken,
             refresh_token: activeUserToken
         });
 
-        // 1. Get the file path from the database before deleting the row
         const { data: examData, error: fetchError } = await supabase
             .from('exams')
             .select('file_path, teacher_id')
@@ -223,17 +212,16 @@ app.post('/api/delete-exam', async (req, res) => {
 
         if (fetchError || !examData) throw new Error("Submission record not found.");
 
-        // Security check: Ensure the logged-in teacher owns this specific file
-        if (examData.teacher_id !== activeUserProfile.id) {
+        // Security check: Allow deletion if user owns the file OR is an admin officer
+        const userRole = activeUserProfile?.user_metadata?.user_role;
+        if (examData.teacher_id !== activeUserProfile.id && userRole !== 'officer') {
             return res.status(430).json({ success: false, error: "Permission denied." });
         }
 
-        // 2. Delete the file physically from your laptop's 'uploads/' folder
         if (fs.existsSync(examData.file_path)) {
             fs.unlinkSync(examData.file_path);
         }
 
-        // 3. Remove the record from the Supabase cloud table row queue
         const { error: deleteError } = await supabase
             .from('exams')
             .delete()
@@ -249,12 +237,41 @@ app.post('/api/delete-exam', async (req, res) => {
 });
 
 // ==========================================
-// 7. EXAM OFFICER DOWNLOAD & OPTIMIZE PIPELINE ROUTE
+// 7. ADMIN DELETE SUBMISSION ENDPOINT (Dedicated Alias)
+// ==========================================
+app.post('/api/admin/delete-exam', async (req, res) => {
+    const { examId } = req.body;
+    try {
+        const { data: examData, error: fetchError } = await supabase
+            .from('exams')
+            .select('file_path')
+            .eq('id', examId)
+            .single();
+
+        if (examData && fs.existsSync(examData.file_path)) {
+            fs.unlinkSync(examData.file_path);
+        }
+
+        const { error: deleteError } = await supabase
+            .from('exams')
+            .delete()
+            .eq('id', examId);
+
+        if (deleteError) throw deleteError;
+
+        res.json({ success: true, message: "Exam paper deleted successfully from admin queue." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// 8. EXAM OFFICER DOWNLOAD & OPTIMIZE PIPELINE ROUTE
 // ==========================================
 app.get('/api/download/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        // 1. Fetch exam record from Supabase by ID
         const { data: exam, error } = await supabase
             .from('exams')
             .select('*')
@@ -265,16 +282,13 @@ app.get('/api/download/:id', async (req, res) => {
             return res.status(404).send('Exam submission record not found in the database.');
         }
 
-        // 2. Check if the document file physically exists on the server storage
         if (!fs.existsSync(exam.file_path)) {
             return res.status(404).send('Original Word document file no longer exists on the server storage folder.');
         }
 
-        // 3. Extract text from the Word document and run it through your Formatter engine
         const rawText = await formatter.extractTextFromDocx(exam.file_path);
         const auditResults = formatter.optimizeExamText(rawText);
         
-        // 4. Generate the professional 2-Column Newspaper Layout print template
         const htmlOutput = formatter.generatePrintTemplate(
             { 
                 subject: exam.subject, 
@@ -286,7 +300,6 @@ app.get('/api/download/:id', async (req, res) => {
             auditResults
         );
 
-        // 5. Send the compiled layout directly to the browser for instant viewing and printing
         res.send(htmlOutput);
 
     } catch (err) {
