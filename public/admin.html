@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Officer Panel - The Noble Standard Schools</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; }
+        .admin-container { max-width: 1050px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { color: #1F4E30; margin: 0; font-size: 26px; }
+        .logout-btn { background-color: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; }
+        .logout-btn:hover { background-color: #dc2626; }
+        .stats-bar { display: flex; gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: #E2F0E5; padding: 15px 25px; border-radius: 8px; border-left: 5px solid #1F4E30; flex: 1; }
+        .stat-card h3 { margin: 0; color: #1F4E30; font-size: 13px; text-transform: uppercase; }
+        .stat-card p { margin: 5px 0 0 0; font-size: 26px; font-weight: bold; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f1f5f9; color: #475569; font-weight: 600; }
+        tr:hover { background-color: #f8fafc; }
+        .action-btn { background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 12px; display: inline-block; }
+        .action-btn:hover { background-color: #1d4ed8; }
+    </style>
+</head>
+<body>
+
+    <div class="admin-container">
+        <div class="header">
+            <div>
+                <h1>Exam Officer Control Dashboard</h1>
+                <p style="color: #64748b; margin: 5px 0 0 0;">Review and optimize incoming papers for The Noble Standard Schools.</p>
+            </div>
+            <!-- Direct anchor link to login page -->
+            <a href="/auth.html#login" class="logout-btn">Log Out</a>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-card">
+                <h3>Total Papers Submitted</h3>
+                <p id="total-papers-counter">0</p>
+            </div>
+        </div>
+
+        <h2>Incoming Papers Queue</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Teacher Name</th>
+                    <th>Subject</th>
+                    <th>Class</th>
+                    <th>Term</th>
+                    <th>Session</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="admin-table-rows">
+                <tr>
+                    <td colspan="7" style="text-align:center; color:#94a3b8;">Loading queue data from school server...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/api/submissions');
+            const submissions = await response.json();
+
+            // 1. Automatically update the total papers counter
+            const counterEl = document.getElementById('total-papers-counter');
+            if (counterEl) {
+                counterEl.textContent = submissions.length;
+            }
+
+            // 2. Populate the table queue rows automatically
+            const queueTableBody = document.getElementById('admin-table-rows');
+            if (queueTableBody) {
+                queueTableBody.innerHTML = '';
+                
+                if (!submissions || submissions.length === 0) {
+                    queueTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#6b7280; padding:20px;">No exam papers submitted yet.</td></tr>`;
+                    return;
+                }
+
+                submissions.forEach(exam => {
+                    const tr = document.createElement('tr');
+                    const formattedDate = exam.created_at ? new Date(exam.created_at).toLocaleDateString() : 'N/A';
+                    
+                    tr.innerHTML = `
+                        <td>${formattedDate}</td>
+                        <td>${exam.teacher_name || 'The Noble Standard Teacher'}</td>
+                        <td>${exam.subject || 'N/A'}</td>
+                        <td>${exam.grade || exam.school_class || 'N/A'}</td>
+                        <td>${exam.term || 'N/A'}</td>
+                        <td>${exam.session_year || 'N/A'}</td>
+                        <td>
+                            <a href="/api/download/${exam.id}" target="_blank" class="action-btn">Optimize / Print</a>
+                        </td>
+                    `;
+                    queueTableBody.appendChild(tr);
+                });
+            }
+        } catch (err) {
+            console.error("Dashboard error:", err);
+        }
+    });
+</script>
+</body>
+</html>

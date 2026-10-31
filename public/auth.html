@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication - School Exam Portal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .auth-container {
+            background: white;
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-width: 400px;
+            width: 100%;
+        }
+        h2 { color: #1e293b; margin-top: 0; margin-bottom: 20px; text-align: center; }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label { display: block; margin-bottom: 6px; color: #475569; font-weight: 500; font-size: 14px; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+        input:focus, select:focus { outline: 2px solid #2563eb; }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .btn:hover { background: #1d4ed8; }
+        .toggle-link {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .toggle-link a { color: #2563eb; text-decoration: none; font-weight: 600; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container">
+        <!-- SIGN UP FORM -->
+        <div id="signup-box">
+            <h2>Create Account</h2>
+            <form action="/api/signup" method="POST">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="fullname" placeholder="Mr. John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="teacher@school.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label>Your Role</label>
+                    <select name="role" required>
+                        <option value="teacher">Teacher</option>
+                        <option value="officer">Exam Officer (Admin)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Register</button>
+            </form>
+            <div class="toggle-link">
+                Already have an account? <a href="#" onclick="toggleAuth()">Login here</a>
+            </div>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="login-box" class="hidden">
+            <h2>Welcome Back</h2>
+            <form action="/api/login" method="POST">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="teacher@school.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn">Sign In</button>
+            </form>
+            <div class="toggle-link">
+                New to the portal? <a href="#" onclick="toggleAuth()">Create account</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Switches visibility between login and signup boxes
+    function toggleAuth() {
+        document.getElementById('signup-box').classList.toggle('hidden');
+        document.getElementById('login-box').classList.toggle('hidden');
+    }
+
+    // Automatically shows the correct form based on what button was clicked on the homepage
+    window.addEventListener('DOMContentLoaded', () => {
+        if (window.location.hash === '#login') {
+            document.getElementById('signup-box').classList.add('hidden');
+            document.getElementById('login-box').classList.remove('hidden');
+        }
+    });
+    </script>
+</body>
+</html>
