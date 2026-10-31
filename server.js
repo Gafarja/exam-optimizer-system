@@ -132,13 +132,13 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
         }
 
         // 1. Extract raw structural text characters out from the Word document
-        const rawText = await Formatter.extractTextFromDocx(file.path);
+        const rawText = await formatter.extractTextFromDocx(file.path);
         
         // 2. Process text strings through the smart auditor engine
-        const auditResults = Formatter.optimizeExamText(rawText);
+        const auditResults = formatter.optimizeExamText(rawText);
         
         // 3. Construct HTML print view template passing curriculum parameters
-        const htmlOutput = Formatter.generatePrintTemplate(
+        const htmlOutput = formatter.generatePrintTemplate(
             { subject, grade, term, session_year, duration },
             auditResults
         );
@@ -271,11 +271,11 @@ app.get('/api/download/:id', async (req, res) => {
         }
 
         // 3. Extract text from the Word document and run it through your Formatter engine
-        const rawText = await Formatter.extractTextFromDocx(exam.file_path);
-        const auditResults = Formatter.optimizeExamText(rawText);
+        const rawText = await formatter.extractTextFromDocx(exam.file_path);
+        const auditResults = formatter.optimizeExamText(rawText);
         
         // 4. Generate the professional 2-Column Newspaper Layout print template
-        const htmlOutput = Formatter.generatePrintTemplate(
+        const htmlOutput = formatter.generatePrintTemplate(
             { 
                 subject: exam.subject, 
                 grade: exam.grade, 
@@ -296,7 +296,7 @@ app.get('/api/download/:id', async (req, res) => {
 });
 
 // Start Server Listen Execution Engine
-const PORT = process.env.PORT || 3000;
+PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
