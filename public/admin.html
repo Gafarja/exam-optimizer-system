@@ -21,6 +21,12 @@
         tr:hover { background-color: #f8fafc; }
         .action-btn { background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 12px; display: inline-block; }
         .action-btn:hover { background-color: #1d4ed8; }
+        .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
     </style>
 </head>
 <body>
@@ -43,26 +49,27 @@
         </div>
 
         <h2>Incoming Papers Queue</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Teacher Name</th>
-                    <th>Subject</th>
-                    <th>Class</th>
-                    <th>Term</th>
-                    <th>Session</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="admin-table-rows">
-                <tr>
-                    <td colspan="7" style="text-align:center; color:#94a3b8;">Loading queue data from school server...</td>
-                </tr>
-            </tbody>
-        </table>
+            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table style="width: 100%; min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Teacher Name</th>
+                            <th>Subject</th>
+                            <th>Class</th>
+                            <th>Term</th>
+                            <th>Session</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-table-rows">
+                        <tr>
+                            <td colspan="7" style="text-align:center; color:#94a3b8;">Loading queue data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
     </div>
-
 <script>
     document.addEventListener('DOMContentLoaded', async () => {
         try {
