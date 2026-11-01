@@ -74,7 +74,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ==========================================
-// 3. EXAM FILE UPLOAD PIPELINE (Supabase Cloud Storage)
+// 3. EXAM FILE UPLOAD PIPELINE (Supabase Cloud Storage & Success Redirect)
 // ==========================================
 app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
     const { subject, grade, term, session_year, duration, teacherName } = req.body;
@@ -119,6 +119,7 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
             console.log("✅ Exam record successfully saved to Supabase database & storage!");
         }
 
+        // Trigger success message popup alert and redirect back to teacher portal dashboard
         res.send(`
             <script>
                 alert("Exam paper compiled and submitted successfully!");
