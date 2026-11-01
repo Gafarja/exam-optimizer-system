@@ -42,14 +42,16 @@ function detectOption(line) {
 }
 
 function optimizeExamText(rawText) {
-    if (!rawText) return {
-        html: "<p style='color:red;'>No text content could be extracted.</p>",
-        anomalies: [],
-        questionIssues: [],
-        optionIssues: [],
-        summary: 'No content extracted.',
-        hasIssues: false
-    };
+    if (!rawText) {
+        return {
+            html: "<p style='color:red;'>No text content could be extracted.</p>",
+            anomalies: [],
+            questionIssues: [],
+            optionIssues: [],
+            summary: 'No content extracted.',
+            hasIssues: false
+        };
+    }
 
     const lines = normalizeExamText(rawText).split('\n');
     const optimizedLines = [];
@@ -221,15 +223,21 @@ function generatePrintTemplate(metadata, auditResults) {
         <title>${metadata.subject} Exam Paper</title>
         <style>
             @page {
-                size: A4;
+                size: A4 portrait;
                 margin: 0;
             }
             html, body {
                 margin: 0;
                 padding: 0;
-                background-color: #f1f5f9;
+                background: #f1f5f9;
                 color: #000;
                 font-family: "Times New Roman", Times, serif;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            body {
+                display: block;
             }
 
             .officer-alert-box {
@@ -244,14 +252,17 @@ function generatePrintTemplate(metadata, auditResults) {
                 color: #991b1b;
                 box-sizing: border-box;
             }
-            .officer-alert-box ul { margin: 4px 0; padding-left: 18px; }
+            .officer-alert-box ul {
+                margin: 6px 0 0 18px;
+                padding: 0;
+            }
 
             .print-canvas {
                 width: 210mm;
                 min-height: 297mm;
                 margin: 10mm auto;
                 background: #fff;
-                padding: 10mm 12mm 12mm 12mm;
+                padding: 10mm 12mm 14mm 12mm;
                 box-sizing: border-box;
                 border: 2px solid #000;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15);
@@ -341,15 +352,38 @@ function generatePrintTemplate(metadata, auditResults) {
                 text-align: justify;
                 position: relative;
                 z-index: 1;
+                column-fill: balance;
             }
-            .exam-question { margin: 8px 0 4px 0; font-size: 11pt; line-height: 1.35; page-break-inside: avoid; column-break-inside: avoid; }
-            .exam-text { margin: 4px 0; font-size: 11pt; line-height: 1.35; page-break-inside: avoid; }
-            .sub-question-text { margin: 3px 0 3px 12px; font-size: 11pt; line-height: 1.3; page-break-inside: avoid; }
+            .exam-question {
+                margin: 8px 0 4px 0;
+                font-size: 11pt;
+                line-height: 1.35;
+                page-break-inside: avoid;
+                break-inside: avoid;
+                overflow-wrap: anywhere;
+            }
+            .exam-text {
+                margin: 4px 0;
+                font-size: 11pt;
+                line-height: 1.35;
+                page-break-inside: avoid;
+                break-inside: avoid;
+                overflow-wrap: anywhere;
+            }
+            .sub-question-text {
+                margin: 3px 0 3px 12px;
+                font-size: 11pt;
+                line-height: 1.3;
+                page-break-inside: avoid;
+                break-inside: avoid;
+                overflow-wrap: anywhere;
+            }
             .option-item {
                 margin: 3px 0 3px 12px;
                 font-size: 11pt;
                 line-height: 1.3;
                 page-break-inside: avoid;
+                break-inside: avoid;
                 display: inline-block;
                 margin-right: 15px;
             }
@@ -364,15 +398,32 @@ function generatePrintTemplate(metadata, auditResults) {
                 font-weight: bold;
             }
 
+            @media screen and (max-width: 800px) {
+                .print-canvas {
+                    width: 100%;
+                    min-height: auto;
+                    margin: 0;
+                    padding: 10px;
+                    box-shadow: none;
+                    border: none;
+                }
+                .two-column-zone {
+                    column-count: 1;
+                    column-rule: none;
+                }
+            }
+
             @media print {
                 html, body {
-                    background-color: #fff;
+                    margin: 0;
+                    padding: 0;
+                    background: #fff;
                 }
                 .officer-alert-box { display: none !important; }
                 .no-print { display: none !important; }
                 .print-canvas {
-                    width: 100%;
-                    min-height: 100vh;
+                    width: 210mm;
+                    min-height: 297mm;
                     margin: 0;
                     padding: 10mm 12mm 14mm 12mm;
                     border: 2px solid #000;
