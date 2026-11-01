@@ -25,17 +25,41 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// 1. SIGN UP ENDPOINT
+// 1. SIGN UP ENDPOINT (With Secure Admin Passkey Verification)
 // ==========================================
 app.post('/api/signup', async (req, res) => {
-    const { fullname, email, password, role } = req.body;
+    const { fullname, email, password, role, adminCode } = req.body;
     try {
+        let assignedRole = 'teacher';
+
+        // If they chose officer, verify the passkey
+        if (role === 'officer') {
+            const secretPasskey = process.env.ADMIN_SECRET_CODE || 'NobleAdmin2026'; // Fallback code if not set in Render yet
+            if (adminCode !== secretPasskey) {
+                return res.status(400).send(`
+                    <div style="text-align:center; font-family:Arial; margin-top:50px; padding: 20px;">
+                        <h2 style="color:red;">Registration Denied</h2>
+                        <p>The Admin Secret Passkey you entered is incorrect. Only authorized exam officers can create admin accounts.</p>
+                        <a href="/auth.html" style="color:#2563eb; font-weight:bold; text-decoration:none;">Go Back and Try Again</a>
+                    </div>
+                `);
+            }
+            assignedRole = 'officer';
+        }
+
         const { error } = await supabase.auth.signUp({
             email: email,
             password: password,
-            options: { data: { full_name: fullname, user_role: role } }
+            options: { 
+                data: { 
+                    full_name: fullname, 
+                    user_role: assignedRole 
+                } 
+            }
         });
         if (error) throw error;
+
+        // Success response card with mobile responsiveness
         res.send(`
             <!DOCTYPE html>
             <html lang="en">
@@ -84,16 +108,17 @@ app.post('/api/signup', async (req, res) => {
             <body>
                 <div class="success-container">
                     <h2>Registration Successful!</h2>
-                    <p>Your account has been created successfully. You can now log into your workspace dashboard panel.</p>
+                    <p>Your account has been created successfully as an <strong>${assignedRole.toUpperCase()}</strong>. You can now log into your workspace dashboard panel.</p>
                     <a href="/auth.html#login" class="btn">Go to Sign In</a>
                 </div>
             </body>
             </html>
         `);
     } catch (err) {
-        res.status(400).send(`<p style="color:red; font-family:Arial;">Registration Error: ${err.message}</p>`);
+        res.status(400).send(`<p style="color:red; font-family:Arial; text-align:center; margin-top:50px;">Registration Error: ${err.message}</p>`);
     }
 });
+
 
 
 // ==========================================
