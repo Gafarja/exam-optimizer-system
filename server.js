@@ -2,43 +2,24 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const multer = require('multer');
-const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
-const formatter = require('./formatter'); // Lowercase f
+const formatter = require('./formatter');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Supabase Connection Client (Using your original SUPABASE_KEY variable)
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Middleware Settings
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Global state variables tracking the active user account context safely
 let activeUserToken = null;
 let activeUserProfile = null;
 
-// Ensure uploads folder exists
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Use Memory Storage to handle file buffers directly for Supabase Cloud Storage
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Configure Multer storage engine disk parameters
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
-    }
-});
-const upload = multer({ storage: storage });
-
-// Gateway Route
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -52,12 +33,7 @@ app.post('/api/signup', async (req, res) => {
         const { error } = await supabase.auth.signUp({
             email: email,
             password: password,
-            options: {
-                data: {
-                    full_name: fullname,
-                    user_role: role
-                }
-            }
+            options: { data: { full_name: fullname, user_role: role } }
         });
         if (error) throw error;
         res.send(`
@@ -81,12 +57,10 @@ app.post('/api/login', async (req, res) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Cache the session data variables safely
         activeUserToken = data.session.access_token;
         activeUserProfile = data.user;
         const role = data.user.user_metadata.user_role;
 
-        // Secure conditional role redirection routing paths
         if (role === 'teacher') {
             res.redirect('/teacher.html');
         } else if (role === 'officer') {
@@ -100,7 +74,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ==========================================
-// 3. EXAM FILE PROCESSING PIPELINE ENDPOINT (Success Popup & Redirect)
+// 3. EXAM FILE UPLOAD PIPELINE (Supabase Cloud Storage)
 // ==========================================
 app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
     const { subject, grade, term, session_year, duration, teacherName } = req.body;
@@ -109,11 +83,25 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
     if (!file) return res.status(400).send('Missing uploaded document file target attachment.');
 
     try {
-        // Determine the teacher's ID and Name securely from active profile or request fallback
         const tId = activeUserProfile ? activeUserProfile.id : '00000000-0000-0000-0000-000000000000';
         const tName = activeUserProfile?.user_metadata?.full_name || teacherName || 'The Noble Standard Teacher';
 
-        // Save record directly to Supabase table 'exams' every single time
+        // Unique file path name in Supabase storage bucket
+        const storageFileName = `${Date.now()}-${file.originalname}`;
+
+        // Upload buffer directly to Supabase Storage bucket 'exams'
+        const { error: storageError } = await supabase.storage
+            .from('exams')
+            .upload(storageFileName, file.buffer, {
+                contentType: file.mimetype,
+                upsert: false
+            });
+
+        if (storageError) {
+            throw new Error("Supabase Storage Upload Error: " + storageError.message);
+        }
+
+        // Save record to Supabase database table 'exams'
         const { error: insertError } = await supabase.from('exams').insert([{
             teacher_id: tId,
             teacher_name: tName,
@@ -122,16 +110,15 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
             term: term,
             duration: duration,
             session_year: session_year,
-            file_path: file.path
+            file_path: storageFileName // stores storage file key reference
         }]);
 
         if (insertError) {
             console.error("❌ Supabase Insert Error:", insertError.message);
         } else {
-            console.log("✅ Exam record successfully saved to Supabase database!");
+            console.log("✅ Exam record successfully saved to Supabase database & storage!");
         }
 
-        // Return a successful submission popup alert and redirect right back to the teacher portal dashboard
         res.send(`
             <script>
                 alert("Exam paper compiled and submitted successfully!");
@@ -175,7 +162,6 @@ const fetchAllExams = async (req, res) => {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
-        
         res.json(data || []);
     } catch (err) {
         console.error("Dashboard fetch error:", err.message);
@@ -199,11 +185,6 @@ app.post('/api/delete-exam', async (req, res) => {
     }
 
     try {
-        await supabase.auth.setSession({
-            access_token: activeUserToken,
-            refresh_token: activeUserToken
-        });
-
         const { data: examData, error: fetchError } = await supabase
             .from('exams')
             .select('file_path, teacher_id')
@@ -212,15 +193,13 @@ app.post('/api/delete-exam', async (req, res) => {
 
         if (fetchError || !examData) throw new Error("Submission record not found.");
 
-        // Security check: Allow deletion if user owns the file OR is an admin officer
         const userRole = activeUserProfile?.user_metadata?.user_role;
         if (examData.teacher_id !== activeUserProfile.id && userRole !== 'officer') {
             return res.status(430).json({ success: false, error: "Permission denied." });
         }
 
-        if (fs.existsSync(examData.file_path)) {
-            fs.unlinkSync(examData.file_path);
-        }
+        // Remove file from Supabase Storage bucket
+        await supabase.storage.from('exams').remove([examData.file_path]);
 
         const { error: deleteError } = await supabase
             .from('exams')
@@ -237,7 +216,7 @@ app.post('/api/delete-exam', async (req, res) => {
 });
 
 // ==========================================
-// 7. ADMIN DELETE SUBMISSION ENDPOINT (Dedicated Alias)
+// 7. ADMIN DELETE SUBMISSION ENDPOINT
 // ==========================================
 app.post('/api/admin/delete-exam', async (req, res) => {
     const { examId } = req.body;
@@ -248,8 +227,8 @@ app.post('/api/admin/delete-exam', async (req, res) => {
             .eq('id', examId)
             .single();
 
-        if (examData && fs.existsSync(examData.file_path)) {
-            fs.unlinkSync(examData.file_path);
+        if (examData && examData.file_path) {
+            await supabase.storage.from('exams').remove([examData.file_path]);
         }
 
         const { error: deleteError } = await supabase
@@ -282,11 +261,19 @@ app.get('/api/download/:id', async (req, res) => {
             return res.status(404).send('Exam submission record not found in the database.');
         }
 
-        if (!fs.existsSync(exam.file_path)) {
-            return res.status(404).send('Original Word document file no longer exists on the server storage folder.');
+        // Download file blob buffer from Supabase Storage bucket
+        const { data: fileBlob, error: downloadError } = await supabase.storage
+            .from('exams')
+            .download(exam.file_path);
+
+        if (downloadError || !fileBlob) {
+            return res.status(404).send('Original Word document file no longer exists in Supabase storage.');
         }
 
-        const rawText = await formatter.extractTextFromDocx(exam.file_path);
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        const fileBuffer = Buffer.from(arrayBuffer);
+
+        const rawText = await formatter.extractTextFromDocxBuffer(fileBuffer);
         const auditResults = formatter.optimizeExamText(rawText);
         
         const htmlOutput = formatter.generatePrintTemplate(
@@ -308,7 +295,6 @@ app.get('/api/download/:id', async (req, res) => {
     }
 });
 
-// Start Server Listen Execution Engine
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
