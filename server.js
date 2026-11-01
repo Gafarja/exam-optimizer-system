@@ -119,8 +119,6 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-
-
 // ==========================================
 // 2. LOGIN ENDPOINT
 // ==========================================
@@ -154,6 +152,17 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
     const file = req.file;
 
     if (!file) return res.status(400).send('Missing uploaded document file target attachment.');
+
+    // 🔒 Enforce strict .docx file extension check (Feature 3)
+    if (!file.originalname.toLowerCase().endsWith('.docx')) {
+        return res.status(400).send(`
+            <div style="text-align:center; font-family:Arial; margin-top:50px; padding:20px;">
+                <h2 style="color:red;">Invalid File Format</h2>
+                <p>Only Microsoft Word documents (.docx) are allowed. Please convert your file and try again.</p>
+                <a href="/teacher.html" style="color:#2563eb; font-weight:bold; text-decoration:none;">Go Back</a>
+            </div>
+        `);
+    }
 
     try {
         // Securely resolve teacher ID and name with robust fallbacks
@@ -367,6 +376,79 @@ app.get('/api/download/:id', async (req, res) => {
     } catch (err) {
         console.error("Optimization pipeline error:", err);
         res.status(500).send(`Error processing exam document: ${err.message}`);
+    }
+});
+
+// ==========================================
+// 9. EXAM OFFICER BULK DOWNLOAD / PRINT QUEUE ENDPOINT (Feature 2)
+// ==========================================
+app.post('/api/admin/bulk-download', async (req, res) => {
+    const { examIds } = req.body;
+    if (!examIds || !Array.isArray(examIds) || examIds.length === 0) {
+        return res.status(400).send('No exam IDs provided for bulk download.');
+    }
+
+    try {
+        let combinedHtml = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Bulk Exam Print Queue</title>
+                <style>
+                    body { font-family: 'Times New Roman', Times, serif; margin: 0; padding: 0; background: #fff; color: #000; }
+                    .exam-page { page-break-after: always; padding: 40px; }
+                    @media print {
+                        body { background: none; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #2563eb; color: #fff; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="window.print()">Print All Papers</div>
+        `;
+
+        for (const id of examIds) {
+            const { data: exam, error } = await supabase
+                .from('exams')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (error || !exam) continue;
+
+            const { data: fileBlob, error: downloadError } = await supabase.storage
+                .from('exams')
+                .download(exam.file_path);
+
+            if (downloadError || !fileBlob) continue;
+
+            const arrayBuffer = await fileBlob.arrayBuffer();
+            const fileBuffer = Buffer.from(arrayBuffer);
+
+            const rawText = await formatter.extractTextFromDocxBuffer(fileBuffer);
+            const auditResults = formatter.optimizeExamText(rawText);
+            
+            const singleHtml = formatter.generatePrintTemplate(
+                { 
+                    subject: exam.subject, 
+                    grade: exam.grade, 
+                    term: exam.term, 
+                    session_year: exam.session_year, 
+                    duration: exam.duration 
+                },
+                auditResults
+            );
+
+            combinedHtml += `<div class="exam-page">${singleHtml}</div>`;
+        }
+
+        combinedHtml += `</body></html>`;
+        res.send(combinedHtml);
+
+    } catch (err) {
+        console.error("Bulk download error:", err);
+        res.status(500).send(`Bulk download processing error: ${err.message}`);
     }
 });
 
