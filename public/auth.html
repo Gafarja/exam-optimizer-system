@@ -21,6 +21,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             max-width: 400px;
             width: 100%;
+            box-sizing: border-box;
         }
         h2 { color: #1e293b; margin-top: 0; margin-bottom: 20px; text-align: center; }
         .form-group {
@@ -57,6 +58,22 @@
         }
         .toggle-link a { color: #2563eb; text-decoration: none; font-weight: 600; }
         .hidden { display: none; }
+
+        /* Mobile Responsiveness for Android & Small Screens */
+        @media screen and (max-width: 480px) {
+            body {
+                align-items: flex-start;
+                padding-top: 20px;
+            }
+            .auth-container {
+                width: 90%;
+                max-width: none;
+                margin: 0 auto;
+                padding: 20px;
+                box-shadow: none;
+                border: 1px solid #e2e8f0;
+            }
+        }
     </style>
 </head>
 <body>
