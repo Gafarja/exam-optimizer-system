@@ -230,9 +230,9 @@ function generatePrintTemplate(metadata, auditResults) {
             html, body {
                 margin: 0;
                 padding: 0;
-                background: #f1f5f9;
-                color: #000;
-                font-family: "Times New Roman", Times, serif;
+                background: #efefef;
+                color: #111;
+                font-family: "Times New Roman", Georgia, serif;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -262,13 +262,13 @@ function generatePrintTemplate(metadata, auditResults) {
                 width: 210mm;
                 min-height: 297mm;
                 margin: 10mm auto;
-                background: #fff;
-                padding: 10mm 12mm 14mm 12mm;
+                background: white;
+                padding: 12mm 12mm 14mm 12mm;
                 box-sizing: border-box;
                 border: 2px solid #000;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                 position: relative;
                 overflow: hidden;
+                box-shadow: 0 4px 18px rgba(0,0,0,0.12);
             }
 
             .exam-sheet::before {
@@ -277,10 +277,10 @@ function generatePrintTemplate(metadata, auditResults) {
                 left: 50%;
                 top: 50%;
                 transform: translate(-50%, -50%) rotate(-30deg);
-                font-size: 34pt;
+                font-size: 32pt;
                 font-weight: bold;
                 letter-spacing: 2px;
-                color: rgba(0, 0, 0, 0.03);
+                color: rgba(0,0,0,0.04);
                 white-space: nowrap;
                 pointer-events: none;
                 z-index: 0;
@@ -296,37 +296,65 @@ function generatePrintTemplate(metadata, auditResults) {
                 border-collapse: collapse;
                 table-layout: fixed;
             }
-            .logo-cell { width: 75px; vertical-align: middle; text-align: left; }
-            .logo-img { width: 65px; height: auto; display: block; }
-            .title-cell { vertical-align: middle; text-align: center; }
-            .school-title { font-size: 20pt; font-weight: bold; margin: 0; white-space: nowrap; letter-spacing: 0.5px; }
-            .term-title { font-size: 12pt; font-weight: bold; margin: 3px 0 2px 0; text-transform: uppercase; }
-            .subject-title { font-size: 12pt; font-weight: bold; margin: 0; text-transform: uppercase; }
+            .logo-cell {
+                width: 72px;
+                text-align: left;
+                vertical-align: middle;
+            }
+            .logo-img {
+                width: 52px;
+                height: auto;
+                display: block;
+            }
+            .title-cell {
+                text-align: center;
+                vertical-align: middle;
+            }
+            .school-title {
+                font-size: 21pt;
+                font-weight: bold;
+                letter-spacing: 0.5px;
+                margin: 0;
+                text-transform: uppercase;
+            }
+            .term-title {
+                font-size: 11pt;
+                font-weight: bold;
+                margin-top: 4px;
+                text-transform: uppercase;
+            }
+            .subject-title {
+                font-size: 11pt;
+                font-weight: bold;
+                margin-top: 2px;
+                text-transform: uppercase;
+            }
 
             .meta-table {
                 width: 100%;
-                font-size: 11pt;
-                font-weight: bold;
-                margin-top: 8px;
-                margin-bottom: 8px;
-                border-collapse: collapse;
-            }
-            .meta-table td { padding: 4px 2px; vertical-align: bottom; }
-            .meta-value {
                 font-size: 10pt;
-                font-weight: normal;
-                border-bottom: 1px solid #000;
+                font-weight: bold;
+                border-collapse: collapse;
+                margin-top: 10px;
+                margin-bottom: 10px;
+            }
+            .meta-table td {
+                padding: 4px 2px;
+                vertical-align: bottom;
+            }
+            .meta-value {
                 display: inline-block;
-                padding-bottom: 1px;
                 min-width: 80px;
+                border-bottom: 1px solid #000;
+                font-weight: normal;
+                padding-bottom: 1px;
             }
             .meta-value-wide {
-                font-size: 10pt;
-                font-weight: normal;
-                border-bottom: 1px solid #000;
                 display: inline-block;
-                padding-bottom: 1px;
                 width: 85%;
+                border-bottom: 1px solid #000;
+                font-weight: normal;
+                padding-bottom: 1px;
             }
 
             .section-banner {
@@ -334,31 +362,41 @@ function generatePrintTemplate(metadata, auditResults) {
                 align-items: center;
                 margin: 14px 0 8px 0;
                 column-span: all;
-                font-family: "Courier New", Courier, monospace;
             }
             .section-accent-bar {
-                width: 5px;
+                width: 4px;
                 height: 30px;
-                background-color: #000;
+                background: #000;
                 margin-right: 12px;
             }
-            .section-text-block { display: flex; flex-direction: column; }
-            .section-title { font-size: 11pt; font-weight: bold; letter-spacing: 0.5px; }
-            .section-instruction { font-size: 11pt; font-style: italic; margin-top: 2px; }
+            .section-text-block {
+                display: flex;
+                flex-direction: column;
+            }
+            .section-title {
+                font-size: 11pt;
+                font-weight: bold;
+                letter-spacing: 0.4px;
+                text-transform: uppercase;
+            }
+            .section-instruction {
+                font-size: 10.5pt;
+                font-style: italic;
+                margin-top: 3px;
+            }
 
             .two-column-zone {
                 column-count: 2;
                 column-gap: 24px;
                 column-rule: 1px solid #000;
                 text-align: justify;
-                position: relative;
-                z-index: 1;
                 column-fill: balance;
             }
+
             .exam-question {
                 margin: 8px 0 4px 0;
                 font-size: 11pt;
-                line-height: 1.35;
+                line-height: 1.4;
                 page-break-inside: avoid;
                 break-inside: avoid;
                 overflow-wrap: anywhere;
@@ -366,7 +404,7 @@ function generatePrintTemplate(metadata, auditResults) {
             .exam-text {
                 margin: 4px 0;
                 font-size: 11pt;
-                line-height: 1.35;
+                line-height: 1.4;
                 page-break-inside: avoid;
                 break-inside: avoid;
                 overflow-wrap: anywhere;
@@ -374,7 +412,7 @@ function generatePrintTemplate(metadata, auditResults) {
             .sub-question-text {
                 margin: 3px 0 3px 12px;
                 font-size: 11pt;
-                line-height: 1.3;
+                line-height: 1.35;
                 page-break-inside: avoid;
                 break-inside: avoid;
                 overflow-wrap: anywhere;
@@ -382,11 +420,11 @@ function generatePrintTemplate(metadata, auditResults) {
             .option-item {
                 margin: 3px 0 3px 12px;
                 font-size: 11pt;
-                line-height: 1.3;
-                page-break-inside: avoid;
-                break-inside: avoid;
+                line-height: 1.35;
                 display: inline-block;
                 margin-right: 15px;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
 
             .page-footer {
@@ -404,7 +442,7 @@ function generatePrintTemplate(metadata, auditResults) {
                     width: 100%;
                     min-height: auto;
                     margin: 0;
-                    padding: 10px;
+                    padding: 20px;
                     box-shadow: none;
                     border: none;
                 }
@@ -418,30 +456,24 @@ function generatePrintTemplate(metadata, auditResults) {
                 @page {
                     size: A4 portrait;
                     margin: 0;
-                    marks: 0;
-                    bleed: 0;
                 }
-
                 html, body {
                     margin: 0;
                     padding: 0;
                     background: #fff;
-                    zoom: 1;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
-
                 .officer-alert-box { display: none !important; }
                 .no-print { display: none !important; }
                 .exam-sheet {
                     width: 210mm;
                     min-height: 297mm;
                     margin: 0;
-                    padding: 10mm 12mm 14mm 12mm;
+                    padding: 12mm 12mm 14mm 12mm;
                     border: 2px solid #000;
                     box-shadow: none;
                     overflow: visible;
-                    page-break-after: always;
                 }
             }
         </style>
@@ -453,13 +485,14 @@ function generatePrintTemplate(metadata, auditResults) {
         </div>
 
         ${alertBanner}
+
         <div class="exam-sheet">
             <table class="header-table">
                 <tr>
                     <td class="logo-cell"><img src="/logo.png" alt="School Logo" class="logo-img"></td>
                     <td class="title-cell">
-                        <div class="school-title">THE NOBLE STANDARD SCHOOLS</div>
-                        <div class="term-title">${metadata.term.toUpperCase()} EXAMINATION</div>
+                        <div class="school-title">The Noble Standard Schools</div>
+                        <div class="term-title">Third Term Examination</div>
                         <div class="subject-title">${metadata.subject.toUpperCase()}</div>
                     </td>
                 </tr>
@@ -478,6 +511,7 @@ function generatePrintTemplate(metadata, auditResults) {
             </table>
 
             ${auditResults.html}
+
             <div class="page-footer">TNSS - (${metadata.grade} ${metadata.subject}) Page 1</div>
         </div>
     </body>
