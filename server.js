@@ -37,16 +37,64 @@ app.post('/api/signup', async (req, res) => {
         });
         if (error) throw error;
         res.send(`
-            <div style="text-align:center; font-family:Arial; margin-top:50px;">
-                <h2 style="color:green;">Registration Completed Successfully!</h2>
-                <p>You can now go back and log into your workspace dashboard panel.</p>
-                <a href="/auth.html" style="color:#2563eb; font-weight:bold; text-decoration:none;">Go to Sign In</a>
-            </div>
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Registration Successful</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Arial, sans-serif;
+                        background-color: #f4f6f9;
+                        margin: 0;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                    }
+                    .success-container {
+                        background: white;
+                        padding: 35px;
+                        border-radius: 12px;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+                        max-width: 400px;
+                        width: 90%;
+                        text-align: center;
+                        box-sizing: border-box;
+                    }
+                    h2 { color: #16a34a; margin-top: 0; margin-bottom: 15px; }
+                    p { color: #475569; font-size: 15px; margin-bottom: 25px; line-height: 1.5; }
+                    .btn {
+                        display: inline-block;
+                        width: 100%;
+                        padding: 12px;
+                        background: #2563eb;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        text-decoration: none;
+                        font-size: 16px;
+                        box-sizing: border-box;
+                    }
+                    .btn:hover { background: #1d4ed8; }
+                </style>
+            </head>
+            <body>
+                <div class="success-container">
+                    <h2>Registration Successful!</h2>
+                    <p>Your account has been created successfully. You can now log into your workspace dashboard panel.</p>
+                    <a href="/auth.html#login" class="btn">Go to Sign In</a>
+                </div>
+            </body>
+            </html>
         `);
     } catch (err) {
         res.status(400).send(`<p style="color:red; font-family:Arial;">Registration Error: ${err.message}</p>`);
     }
 });
+
 
 // ==========================================
 // 2. LOGIN ENDPOINT
