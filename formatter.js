@@ -22,6 +22,7 @@ async function extractTextFromDocxBuffer(buffer) {
 
 /**
  * Advanced Exam Auditor & Clean Extraction Engine
+ * Thoroughly strips teacher-typed metadata fragments and redundant header blocks from document body.
  */
 function optimizeExamText(rawText) {
     if (!rawText) return { html: "<p style='color:red;'>No text content could be extracted.</p>", anomalies: [] };
@@ -38,12 +39,12 @@ function optimizeExamText(rawText) {
 
         let lowerLine = line.toLowerCase();
         
-        // Detect placeholders or draft text
+        // 1. Detect placeholders or draft text
         if (lowerLine.includes("lorem ipsum") || lowerLine.includes("todo") || lowerLine.includes("insert here") || lowerLine.includes("draft")) {
             anomalies.push(`Draft text or placeholder words detected: "${line.substring(0, 40)}..."`);
         }
 
-        // Filter out redundant metadata fields typed by teachers
+        // 2. Comprehensive Teacher Metadata & Fragment Filter (Catches stray header parts, classes, marks, time values)
         if (
             lowerLine.includes("the noble standard school") || 
             lowerLine.includes("third term examination") || 
@@ -55,13 +56,19 @@ function optimizeExamText(rawText) {
             lowerLine.startsWith("time:") ||
             lowerLine.includes("total marks") || 
             lowerLine.includes("time allowed") ||
-            lowerLine.includes("session:")
+            lowerLine.includes("session:") ||
+            // Catch stray teacher header fragments broken across lines
+            lowerLine === "jss 1" || lowerLine === "jss 2" || lowerLine === "jss 3" ||
+            lowerLine === "sss 1" || lowerLine === "sss 2" || lowerLine === "sss 3" ||
+            lowerLine.includes("hour") || lowerLine.includes("mins") || 
+            lowerLine.includes("marks") || lowerLine === "60" || lowerLine === "40" || 
+            lowerLine === "1" || lowerLine === "2" || lowerLine === "3"
         ) {
-            anomalies.push(`Filtered out repeated header/metadata block: "${line.substring(0, 45)}..."`);
+            anomalies.push(`Filtered out repeated header/metadata fragment: "${line}"`);
             continue; 
         }
 
-        // Section Headers & Instructions (Courier New styling block matching image)
+        // 3. Section Headers & Instructions (Courier New styling block matching image)
         if (lowerLine.includes("section a") || lowerLine.includes("section b") || lowerLine.includes("theory question") || lowerLine.includes("objective")) {
             currentQuestionCounter = 1;
             optimizedLines.push(`</div><div class="section-banner"><div class="section-accent-bar"></div><div class="section-text-block"><div class="section-title">${line.toUpperCase()}</div>`);
@@ -75,7 +82,7 @@ function optimizeExamText(rawText) {
             continue;
         }
 
-        // Question Extraction & Numbering Normalization
+        // 4. Question Extraction & Numbering Normalization
         let questionMatch = line.match(/^(\d+)[\).\-\s]+(.*)/);
         if (questionMatch) {
             let originalNumber = parseInt(questionMatch[1]);
@@ -91,7 +98,7 @@ function optimizeExamText(rawText) {
             continue;
         }
 
-        // Multiple Choice Options Formatting (11pt Times New Roman, cleanly spaced)
+        // 5. Multiple Choice Options Formatting (11pt Times New Roman, cleanly spaced)
         if (line.match(/^([A-D]|[a-d])[\).\-]/) || line.match(/^\(([A-D]|[a-d])\)/)) {
             optimizedLines.push(`<div class="option-item">${line}</div>`);
         } else {
