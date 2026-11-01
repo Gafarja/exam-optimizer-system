@@ -21,8 +21,8 @@ async function extractTextFromDocxBuffer(buffer) {
 }
 
 /**
- * Advanced Exam Auditor & Clean Extraction Engine
- * Thoroughly strips teacher-typed metadata fragments and redundant header blocks from document body.
+ * Precision Exam Optimization Engine
+ * Retains instructions, handles unnumbered theory questions, and filters only top-level header metadata.
  */
 function optimizeExamText(rawText) {
     if (!rawText) return { html: "<p style='color:red;'>No text content could be extracted.</p>", anomalies: [] };
@@ -32,6 +32,7 @@ function optimizeExamText(rawText) {
     let anomalies = [];
     
     let currentQuestionCounter = 1;
+    let inTheorySection = false;
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
@@ -39,42 +40,32 @@ function optimizeExamText(rawText) {
 
         let lowerLine = line.toLowerCase();
         
-        // 1. Detect placeholders or draft text
-        if (lowerLine.includes("lorem ipsum") || lowerLine.includes("todo") || lowerLine.includes("insert here") || lowerLine.includes("draft")) {
-            anomalies.push(`Draft text or placeholder words detected: "${line.substring(0, 40)}..."`);
+        // 1. Detect placeholders
+        if (lowerLine.includes("lorem ipsum") || lowerLine.includes("todo") || lowerLine.includes("draft")) {
+            anomalies.push(`Draft text detected: "${line.substring(0, 30)}..."`);
         }
 
-        // 2. Comprehensive Teacher Metadata & Fragment Filter (Catches stray header parts, classes, marks, time values)
+        // 2. Strict Top-Level Metadata Filter (Only blocks actual leading header rows, never questions)
         if (
-            lowerLine.includes("the noble standard school") || 
-            lowerLine.includes("third term examination") || 
-            lowerLine.includes("islamic religious studies") ||
-            lowerLine.includes("exam paper") ||
-            lowerLine.startsWith("name:") || 
-            lowerLine.startsWith("date:") || 
-            lowerLine.startsWith("class:") ||
-            lowerLine.startsWith("time:") ||
-            lowerLine.includes("total marks") || 
-            lowerLine.includes("time allowed") ||
-            lowerLine.includes("session:") ||
-            // Catch stray teacher header fragments broken across lines
-            lowerLine === "jss 1" || lowerLine === "jss 2" || lowerLine === "jss 3" ||
-            lowerLine === "sss 1" || lowerLine === "sss 2" || lowerLine === "sss 3" ||
-            lowerLine.includes("hour") || lowerLine.includes("mins") || 
-            lowerLine.includes("marks") || lowerLine === "60" || lowerLine === "40" || 
-            lowerLine === "1" || lowerLine === "2" || lowerLine === "3"
+            (lowerLine.startsWith("class:") && line.length < 25) ||
+            (lowerLine.startsWith("time:") && line.length < 25) ||
+            (lowerLine.startsWith("name:") && line.length < 25) ||
+            (lowerLine.startsWith("date:") && line.length < 25) ||
+            lowerLine.includes("time allowed:") ||
+            lowerLine.includes("session:")
         ) {
-            anomalies.push(`Filtered out repeated header/metadata fragment: "${line}"`);
             continue; 
         }
 
-        // 3. Section Headers & Instructions (Courier New styling block matching image)
+        // 3. Section Headers & Instructions (Courier New styling block)
         if (lowerLine.includes("section a") || lowerLine.includes("section b") || lowerLine.includes("theory question") || lowerLine.includes("objective")) {
             currentQuestionCounter = 1;
+            inTheorySection = lowerLine.includes("section b") || lowerLine.includes("theory");
+            
             optimizedLines.push(`</div><div class="section-banner"><div class="section-accent-bar"></div><div class="section-text-block"><div class="section-title">${line.toUpperCase()}</div>`);
             
-            // Look ahead for instruction line if present
-            if (i + 1 < lines.length && lines[i + 1].toLowerCase().includes("instruction")) {
+            // Look ahead for instruction line if present (Preserved completely)
+            if (i + 1 < lines.length && (lines[i + 1].toLowerCase().includes("instruction") || lines[i + 1].toLowerCase().includes("answer"))) {
                 i++;
                 optimizedLines.push(`<div class="section-instruction">${lines[i].trim()}</div>`);
             }
@@ -82,23 +73,29 @@ function optimizeExamText(rawText) {
             continue;
         }
 
-        // 4. Question Extraction & Numbering Normalization
+        // 4. Question Extraction & Numbering Normalization (Objective or Numbered Theory)
         let questionMatch = line.match(/^(\d+)[\).\-\s]+(.*)/);
         if (questionMatch) {
             let originalNumber = parseInt(questionMatch[1]);
             let questionContent = questionMatch[2].trim();
 
-            if (originalNumber !== currentQuestionCounter) {
+            if (!inTheorySection && originalNumber !== currentQuestionCounter) {
                 anomalies.push(`Standardized Question ${originalNumber} to sequence index ${currentQuestionCounter}.`);
             }
 
             line = `<strong>${currentQuestionCounter}.</strong> ${questionContent}`;
-            currentQuestionCounter++;
+            if (!inTheorySection) currentQuestionCounter++;
             optimizedLines.push(`<div class="exam-question">${line}</div>`);
             continue;
         }
 
-        // 5. Multiple Choice Options Formatting (11pt Times New Roman, cleanly spaced)
+        // 5. Unnumbered Theory Questions Handling
+        if (inTheorySection && (lowerLine.startsWith("question") || line.match(/^[a-z]\)/i))) {
+            optimizedLines.push(`<div class="exam-question">${line}</div>`);
+            continue;
+        }
+
+        // 6. Multiple Choice Options & Body Text Formatting
         if (line.match(/^([A-D]|[a-d])[\).\-]/) || line.match(/^\(([A-D]|[a-d])\)/)) {
             optimizedLines.push(`<div class="option-item">${line}</div>`);
         } else {
@@ -125,7 +122,7 @@ function generatePrintTemplate(metadata, auditResults) {
             <ul>
                 ${auditResults.anomalies.map(err => `<li>${err}</li>`).join('')}
             </ul>
-            <small>*Note: This red banner is only for dashboard review. It will hide itself completely when printing.*</small>
+            <small>*Note: This banner is for dashboard review only and hides during print.*</small>
         </div>
         `;
     }
@@ -138,7 +135,7 @@ function generatePrintTemplate(metadata, auditResults) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${metadata.subject} Exam Paper</title>
         <style>
-            @page { size: A4; margin: 12mm 10mm 12mm 10mm; }
+            @page { size: A4; margin: 10mm 8mm 10mm 8mm; }
             html, body {
                 margin: 0; padding: 0;
                 font-family: "Times New Roman", Times, serif;
@@ -151,9 +148,11 @@ function generatePrintTemplate(metadata, auditResults) {
                 max-width: 210mm; font-family: Arial, sans-serif; font-size: 10pt; color: #991b1b; box-sizing: border-box;
             }
             .officer-alert-box ul { margin: 4px 0; padding-left: 18px; }
+            
+            /* Print canvas stretched closer to edges matching reference */
             .print-canvas { 
-                width: 210mm; min-height: 297mm; margin: 20px auto; 
-                background: #fff; padding: 12mm 15mm; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                width: 194mm; min-height: 277mm; margin: 10px auto; 
+                background: #fff; padding: 10mm 12mm; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                 box-sizing: border-box; position: relative;
                 border: 2px solid #000;
             }
@@ -172,7 +171,7 @@ function generatePrintTemplate(metadata, auditResults) {
             .meta-table { width: 100%; font-size: 11pt; font-weight: bold; margin-top: 8px; margin-bottom: 8px; border-collapse: collapse; }
             .meta-table td { padding: 4px 2px; vertical-align: bottom; }
             
-            /* Underline Styling for Meta Values (10pt font) */
+            /* Underline Styling for Meta Values */
             .meta-value { 
                 font-size: 10pt; 
                 font-weight: normal; 
@@ -194,11 +193,11 @@ function generatePrintTemplate(metadata, auditResults) {
             .section-banner { 
                 display: flex; 
                 align-items: center; 
-                margin: 15px 0 10px 0; 
+                margin: 14px 0 8px 0; 
                 column-span: all; 
                 font-family: "Courier New", Courier, monospace;
             }
-            .section-accent-bar { width: 5px; height: 32px; background-color: #000; margin-right: 12px; }
+            .section-accent-bar { width: 5px; height: 30px; background-color: #000; margin-right: 12px; }
             .section-text-block { display: flex; flex-direction: column; }
             .section-title { font-size: 11pt; font-weight: bold; letter-spacing: 0.5px; }
             .section-instruction { font-size: 11pt; font-style: italic; margin-top: 2px; }
@@ -206,7 +205,7 @@ function generatePrintTemplate(metadata, auditResults) {
             /* Professional Dual-Column Formatting with Vertical Divider Line */
             .two-column-zone { 
                 column-count: 2; 
-                column-gap: 26px; 
+                column-gap: 24px; 
                 column-rule: 1px solid #000; 
                 text-align: justify; 
             }
@@ -223,8 +222,8 @@ function generatePrintTemplate(metadata, auditResults) {
                 margin-right: 15px;
             }
 
-            .page-footer { position: fixed; bottom: -6mm; left: 0; right: 0; text-align: center; font-size: 9pt; font-weight: bold; }
-            .page-footer::after { counter-increment: pageNumber; content: "Page " counter(pageNumber); }
+            .page-footer { position: fixed; bottom: -4mm; left: 0; right: 0; text-align: center; font-size: 9pt; font-weight: bold; }
+            .page-footer::after { counter-increment: pageNumber; content: "TNSS - (" "${metadata.grade}" " " "${metadata.subject}" ")                 Page " counter(pageNumber); }
 
             @media screen and (max-width: 800px) {
                 html, body { background-color: #ffffff; padding: 0; margin: 0; }
@@ -241,7 +240,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 html, body { background-color: #fff; background: none; }
                 .officer-alert-box { display: none !important; }
                 .no-print { display: none !important; }
-                .print-canvas { width: 100%; box-shadow: none; margin: 0; padding: 12mm; border: 2px solid #000; }
+                .print-canvas { width: 100%; box-shadow: none; margin: 0; padding: 10mm 12mm; border: 2px solid #000; }
             }
         </style>
     </head>
