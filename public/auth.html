@@ -97,11 +97,18 @@
                 </div>
                 <div class="form-group">
                     <label>Your Role</label>
-                    <select name="role" required>
+                    <select name="role" id="roleSelect" required onchange="toggleAdminCode()">
                         <option value="teacher">Teacher</option>
                         <option value="officer">Exam Officer (Admin)</option>
                     </select>
                 </div>
+
+                <!-- Hidden Admin Passkey Field -->
+                <div class="form-group hidden" id="adminCodeGroup">
+                    <label>Admin Secret Passkey</label>
+                    <input type="password" name="adminCode" placeholder="Enter school officer passkey">
+                </div>
+
                 <button type="submit" class="btn">Register</button>
             </form>
             <div class="toggle-link">
@@ -134,6 +141,17 @@
     function toggleAuth() {
         document.getElementById('signup-box').classList.toggle('hidden');
         document.getElementById('login-box').classList.toggle('hidden');
+    }
+
+    // Toggles the visibility of the admin passkey input field based on role selection
+    function toggleAdminCode() {
+        const roleSelect = document.getElementById('roleSelect');
+        const adminCodeGroup = document.getElementById('adminCodeGroup');
+        if (roleSelect.value === 'officer') {
+            adminCodeGroup.classList.remove('hidden');
+        } else {
+            adminCodeGroup.classList.add('hidden');
+        }
     }
 
     // Automatically shows the correct form based on what button was clicked on the homepage
