@@ -238,6 +238,28 @@ function generatePrintTemplate(metadata, auditResults) {
                 margin-right: 15px;
             }
 
+                        /* Official Institutional Watermark */
+            .print-canvas::before {
+                content: "THE NOBLE STANDARD SCHOOLS";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-30deg);
+                font-size: 38pt;
+                font-weight: bold;
+                color: rgba(0, 0, 0, 0.03);
+                white-space: nowrap;
+                pointer-events: none;
+                z-index: 0;
+                letter-spacing: 2px;
+            }
+            /* Ensure text sits above the watermark background */
+            .print-canvas > * {
+                position: relative;
+                z-index: 1;
+            }
+            
+
             .page-footer { position: fixed; bottom: -4mm; left: 0; right: 0; text-align: center; font-size: 9pt; font-weight: bold; }
             .page-footer::after { counter-increment: pageNumber; content: "TNSS - (" "${metadata.grade}" " " "${metadata.subject}" ")                 Page " counter(pageNumber); }
 
