@@ -22,7 +22,6 @@ async function extractTextFromDocxBuffer(buffer) {
 
 /**
  * Advanced Exam Auditor & Clean Extraction Engine
- * Strips teacher-repeated headers/metadata and formats options vertically to prevent overlapping.
  */
 function optimizeExamText(rawText) {
     if (!rawText) return { html: "<p style='color:red;'>No text content could be extracted.</p>", anomalies: [] };
@@ -39,12 +38,12 @@ function optimizeExamText(rawText) {
 
         let lowerLine = line.toLowerCase();
         
-        // 1. Detect placeholder or draft text
+        // Detect placeholders or draft text
         if (lowerLine.includes("lorem ipsum") || lowerLine.includes("todo") || lowerLine.includes("insert here") || lowerLine.includes("draft")) {
             anomalies.push(`Draft text or placeholder words detected: "${line.substring(0, 40)}..."`);
         }
 
-        // 2. Strict Redundancy Filter: Strip out teacher-repeated metadata and header blocks in document body
+        // Filter out redundant metadata fields typed by teachers
         if (
             lowerLine.includes("the noble standard school") || 
             lowerLine.includes("third term examination") || 
@@ -62,14 +61,21 @@ function optimizeExamText(rawText) {
             continue; 
         }
 
-        // 3. Section Headers (Section A, Section B, Theory, Objective)
+        // Section Headers & Instructions (Courier New styling block matching image)
         if (lowerLine.includes("section a") || lowerLine.includes("section b") || lowerLine.includes("theory question") || lowerLine.includes("objective")) {
             currentQuestionCounter = 1;
-            optimizedLines.push(`</div><div class="section-title">${line.toUpperCase()}</div><div class="two-column-zone">`);
+            optimizedLines.push(`</div><div class="section-banner"><div class="section-accent-bar"></div><div class="section-text-block"><div class="section-title">${line.toUpperCase()}</div>`);
+            
+            // Look ahead for instruction line if present
+            if (i + 1 < lines.length && lines[i + 1].toLowerCase().includes("instruction")) {
+                i++;
+                optimizedLines.push(`<div class="section-instruction">${lines[i].trim()}</div>`);
+            }
+            optimizedLines.push(`</div></div><div class="two-column-zone">`);
             continue;
         }
 
-        // 4. Question Extraction & Numbering Normalization
+        // Question Extraction & Numbering Normalization
         let questionMatch = line.match(/^(\d+)[\).\-\s]+(.*)/);
         if (questionMatch) {
             let originalNumber = parseInt(questionMatch[1]);
@@ -85,7 +91,7 @@ function optimizeExamText(rawText) {
             continue;
         }
 
-        // 5. Vertical Stacked Multiple Choice Options (Prevents horizontal text collision & overlapping)
+        // Multiple Choice Options Formatting (11pt Times New Roman, cleanly spaced)
         if (line.match(/^([A-D]|[a-d])[\).\-]/) || line.match(/^\(([A-D]|[a-d])\)/)) {
             optimizedLines.push(`<div class="option-item">${line}</div>`);
         } else {
@@ -144,33 +150,70 @@ function generatePrintTemplate(metadata, auditResults) {
                 box-sizing: border-box; position: relative;
                 border: 2px solid #000;
             }
+            
             /* Official Header Layout */
             .header-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
             .logo-cell { width: 75px; vertical-align: middle; text-align: left; }
             .logo-img { width: 65px; height: auto; display: block; }
             .title-cell { vertical-align: middle; text-align: center; }
-            .school-title { font-size: 15pt; font-weight: bold; margin: 0; white-space: nowrap; letter-spacing: 0.5px; }
-            .term-title { font-size: 10pt; font-weight: bold; margin: 3px 0 2px 0; text-transform: uppercase; }
+            
+            /* Exact Font Specifications */
+            .school-title { font-size: 20pt; font-weight: bold; margin: 0; white-space: nowrap; letter-spacing: 0.5px; }
+            .term-title { font-size: 12pt; font-weight: bold; margin: 3px 0 2px 0; text-transform: uppercase; }
             .subject-title { font-size: 12pt; font-weight: bold; margin: 0; text-transform: uppercase; }
-            .boundary-line { border-bottom: 2px solid #000; margin: 6px 0; }
             
-            .meta-table { width: 100%; font-size: 10pt; font-weight: bold; margin-bottom: 4px; border-collapse: collapse; }
-            .meta-table td { padding: 3px 4px; }
+            .meta-table { width: 100%; font-size: 11pt; font-weight: bold; margin-top: 8px; margin-bottom: 8px; border-collapse: collapse; }
+            .meta-table td { padding: 4px 2px; vertical-align: bottom; }
             
-            /* Professional Dual-Column Formatting */
-            .two-column-zone { column-count: 2; column-gap: 22px; text-align: justify; }
-            .section-title { font-size: 10.5pt; font-weight: bold; margin: 14px 0 6px 0; text-decoration: underline; text-transform: uppercase; column-span: all; text-align: center; }
-            .exam-question { margin: 8px 0 3px 0; font-size: 9.5pt; line-height: 1.3; page-break-inside: avoid; column-break-inside: avoid; }
-            .exam-text { margin: 3px 0; font-size: 9.5pt; line-height: 1.3; page-break-inside: avoid; }
-            .sub-question-text { margin: 2px 0 2px 10px; font-size: 9.5pt; line-height: 1.25; page-break-inside: avoid; }
+            /* Underline Styling for Meta Values (10pt font) */
+            .meta-value { 
+                font-size: 10pt; 
+                font-weight: normal; 
+                border-bottom: 1px solid #000; 
+                display: inline-block; 
+                padding-bottom: 1px;
+                min-width: 80px;
+            }
+            .meta-value-wide { 
+                font-size: 10pt; 
+                font-weight: normal; 
+                border-bottom: 1px solid #000; 
+                display: inline-block; 
+                padding-bottom: 1px;
+                width: 85%;
+            }
+
+            /* Section Banner (Courier New 11pt with Vertical Accent Line) */
+            .section-banner { 
+                display: flex; 
+                align-items: center; 
+                margin: 15px 0 10px 0; 
+                column-span: all; 
+                font-family: "Courier New", Courier, monospace;
+            }
+            .section-accent-bar { width: 5px; height: 32px; background-color: #000; margin-right: 12px; }
+            .section-text-block { display: flex; flex-direction: column; }
+            .section-title { font-size: 11pt; font-weight: bold; letter-spacing: 0.5px; }
+            .section-instruction { font-size: 11pt; font-style: italic; margin-top: 2px; }
+
+            /* Professional Dual-Column Formatting with Vertical Divider Line */
+            .two-column-zone { 
+                column-count: 2; 
+                column-gap: 26px; 
+                column-rule: 1px solid #000; 
+                text-align: justify; 
+            }
+            .exam-question { margin: 8px 0 4px 0; font-size: 11pt; line-height: 1.35; page-break-inside: avoid; column-break-inside: avoid; }
+            .exam-text { margin: 4px 0; font-size: 11pt; line-height: 1.35; page-break-inside: avoid; }
+            .sub-question-text { margin: 3px 0 3px 12px; font-size: 11pt; line-height: 1.3; page-break-inside: avoid; }
             
-            /* Vertical Option Stacking to prevent any horizontal collisions */
             .option-item { 
-                margin: 2px 0 3px 12px; 
-                font-size: 9pt; 
-                line-height: 1.25; 
+                margin: 3px 0 3px 12px; 
+                font-size: 11pt; 
+                line-height: 1.3; 
                 page-break-inside: avoid;
-                display: block;
+                display: inline-block;
+                margin-right: 15px;
             }
 
             .page-footer { position: fixed; bottom: -6mm; left: 0; right: 0; text-align: center; font-size: 9pt; font-weight: bold; }
@@ -182,10 +225,10 @@ function generatePrintTemplate(metadata, auditResults) {
                 .print-canvas { width: 100% !important; min-height: auto; margin: 0 !important; padding: 10px !important; box-shadow: none !important; border: none; }
                 .logo-cell { width: 45px; }
                 .logo-img { width: 40px; }
-                .school-title { font-size: 11pt; white-space: normal; }
-                .term-title { font-size: 9pt; }
+                .school-title { font-size: 14pt; white-space: normal; }
+                .term-title { font-size: 10pt; }
                 .subject-title { font-size: 10pt; }
-                .two-column-zone { column-count: 1 !important; }
+                .two-column-zone { column-count: 1 !important; column-rule: none !important; }
             }
             @media print {
                 html, body { background-color: #fff; background: none; }
@@ -214,20 +257,18 @@ function generatePrintTemplate(metadata, auditResults) {
                     </td>
                 </tr>
             </table>
-            <div class="boundary-line"></div>
             
             <table class="meta-table">
                 <tr>
-                    <td>CLASS: ${metadata.grade}</td>
-                    <td>TIME: ${metadata.duration}</td>
-                    <td>TOTAL MARKS: 60</td>
+                    <td>CLASS: <span class="meta-value">${metadata.grade}</span></td>
+                    <td>TIME: <span class="meta-value">${metadata.duration}</span></td>
+                    <td>TOTAL MARKS: <span class="meta-value">60 Marks</span></td>
                 </tr>
                 <tr>
-                    <td colspan="2">NAME: _________________________________________</td>
-                    <td>DATE: __________________</td>
+                    <td colspan="2">NAME: <span class="meta-value-wide"></span></td>
+                    <td>DATE: <span class="meta-value"></span></td>
                 </tr>
             </table>
-            <div class="boundary-line"></div>
             
             ${auditResults.html}
             <div class="page-footer"></div>
