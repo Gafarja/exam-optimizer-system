@@ -22,7 +22,7 @@ async function extractTextFromDocxBuffer(buffer) {
 
 /**
  * Precision Exam Optimization Engine
- * Retains instructions, handles unnumbered theory questions, and filters only top-level header metadata.
+ * Uses pre-section scoping to strip rogue teacher headers and automatically bolds instructions.
  */
 function optimizeExamText(rawText) {
     if (!rawText) return { html: "<p style='color:red;'>No text content could be extracted.</p>", anomalies: [] };
@@ -33,6 +33,7 @@ function optimizeExamText(rawText) {
     
     let currentQuestionCounter = 1;
     let inTheorySection = false;
+    let inSection = false; // Tracks whether we have entered Section A or B yet
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
@@ -45,35 +46,49 @@ function optimizeExamText(rawText) {
             anomalies.push(`Draft text detected: "${line.substring(0, 30)}..."`);
         }
 
-        // 2. Strict Top-Level Metadata Filter (Only blocks actual leading header rows, never questions)
-        if (
-            (lowerLine.startsWith("class:") && line.length < 25) ||
-            (lowerLine.startsWith("time:") && line.length < 25) ||
-            (lowerLine.startsWith("name:") && line.length < 25) ||
-            (lowerLine.startsWith("date:") && line.length < 25) ||
-            lowerLine.includes("time allowed:") ||
-            lowerLine.includes("session:")
-        ) {
-            continue; 
-        }
-
-        // 3. Section Headers & Instructions (Courier New styling block)
+        // 2. Section Headers & Instructions (Courier New styling block)
         if (lowerLine.includes("section a") || lowerLine.includes("section b") || lowerLine.includes("theory question") || lowerLine.includes("objective")) {
+            inSection = true; // Mark that we are now inside official exam sections
             currentQuestionCounter = 1;
             inTheorySection = lowerLine.includes("section b") || lowerLine.includes("theory");
             
             optimizedLines.push(`</div><div class="section-banner"><div class="section-accent-bar"></div><div class="section-text-block"><div class="section-title">${line.toUpperCase()}</div>`);
             
-            // Look ahead for instruction line if present (Preserved completely)
+            // Look ahead for instruction line if present and bold instruction/instructions
             if (i + 1 < lines.length && (lines[i + 1].toLowerCase().includes("instruction") || lines[i + 1].toLowerCase().includes("answer"))) {
                 i++;
-                optimizedLines.push(`<div class="section-instruction">${lines[i].trim()}</div>`);
+                let instText = lines[i].trim().replace(/\b(instructions?)\b/gi, '<strong>$1</strong>');
+                optimizedLines.push(`<div class="section-instruction">${instText}</div>`);
             }
             optimizedLines.push(`</div></div><div class="two-column-zone">`);
             continue;
         }
 
-        // 4. Question Extraction & Numbering Normalization (Objective or Numbered Theory)
+        // 3. Pre-Section Header Preamble Filter (Active ONLY before the first section starts)
+        if (!inSection) {
+            if (
+                lowerLine.includes("the noble standard school") || 
+                lowerLine.includes("third term examination") || 
+                lowerLine.includes("islamic religious studies") ||
+                lowerLine.includes("exam paper") ||
+                lowerLine.startsWith("name:") || 
+                lowerLine.startsWith("date:") || 
+                lowerLine.startsWith("class:") ||
+                lowerLine.startsWith("time:") ||
+                lowerLine.includes("total marks") || 
+                lowerLine.includes("time allowed") ||
+                lowerLine.includes("session:") ||
+                lowerLine.match(/^(jss|sss)\s*[1-3]/i) ||
+                lowerLine.includes("hour") || 
+                lowerLine.includes("mins") || 
+                lowerLine.includes("marks") || 
+                /^\d+$/.test(lowerLine)
+            ) {
+                continue; // Discard rogue header fragments cleanly before questions begin
+            }
+        }
+
+        // 4. Question Extraction & Numbering Normalization
         let questionMatch = line.match(/^(\d+)[\).\-\s]+(.*)/);
         if (questionMatch) {
             let originalNumber = parseInt(questionMatch[1]);
@@ -95,14 +110,15 @@ function optimizeExamText(rawText) {
             continue;
         }
 
-        // 6. Multiple Choice Options & Body Text Formatting
+        // 6. Multiple Choice Options & Body Text Formatting (Auto-bolding instruction/instructions)
+        let processedLine = line.replace(/\b(instructions?)\b/gi, '<strong>$1</strong>');
         if (line.match(/^([A-D]|[a-d])[\).\-]/) || line.match(/^\(([A-D]|[a-d])\)/)) {
-            optimizedLines.push(`<div class="option-item">${line}</div>`);
+            optimizedLines.push(`<div class="option-item">${processedLine}</div>`);
         } else {
             if (line.match(/^([a-z])[\).\-\s]/)) {
-                optimizedLines.push(`<p class="sub-question-text">${line}</p>`);
+                optimizedLines.push(`<p class="sub-question-text">${processedLine}</p>`);
             } else {
-                optimizedLines.push(`<p class="exam-text">${line}</p>`);
+                optimizedLines.push(`<p class="exam-text">${processedLine}</p>`);
             }
         }
     }
@@ -149,7 +165,7 @@ function generatePrintTemplate(metadata, auditResults) {
             }
             .officer-alert-box ul { margin: 4px 0; padding-left: 18px; }
             
-            /* Print canvas stretched closer to edges matching reference */
+            /* Print canvas stretched close to edges */
             .print-canvas { 
                 width: 194mm; min-height: 277mm; margin: 10px auto; 
                 background: #fff; padding: 10mm 12mm; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
