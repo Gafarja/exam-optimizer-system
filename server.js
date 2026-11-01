@@ -74,7 +74,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ==========================================
-// 3. EXAM FILE UPLOAD PIPELINE (Supabase Cloud Storage & Success Redirect)
+// 3. EXAM FILE UPLOAD PIPELINE (Supabase Cloud Storage)
 // ==========================================
 app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
     const { subject, grade, term, session_year, duration, teacherName } = req.body;
@@ -83,8 +83,9 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
     if (!file) return res.status(400).send('Missing uploaded document file target attachment.');
 
     try {
+        // Securely resolve teacher ID and name with robust fallbacks
         const tId = activeUserProfile ? activeUserProfile.id : '00000000-0000-0000-0000-000000000000';
-        const tName = activeUserProfile?.user_metadata?.full_name || teacherName || 'The Noble Standard Teacher';
+        const tName = activeUserProfile?.user_metadata?.full_name || teacherName || activeUserProfile?.email || 'The Noble Standard Teacher';
 
         // Unique file path name in Supabase storage bucket
         const storageFileName = `${Date.now()}-${file.originalname}`;
@@ -94,7 +95,7 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
             .from('exams')
             .upload(storageFileName, file.buffer, {
                 contentType: file.mimetype,
-                upsert: false
+                upsert: true
             });
 
         if (storageError) {
@@ -110,14 +111,14 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
             term: term,
             duration: duration,
             session_year: session_year,
-            file_path: storageFileName // stores storage file key reference
+            file_path: storageFileName
         }]);
 
         if (insertError) {
-            console.error("❌ Supabase Insert Error:", insertError.message);
-        } else {
-            console.log("✅ Exam record successfully saved to Supabase database & storage!");
+            throw new Error("Supabase Database Insert Error: " + insertError.message);
         }
+
+        console.log("✅ Exam record successfully saved to Supabase database & storage!");
 
         // Trigger success message popup alert and redirect back to teacher portal dashboard
         res.send(`
@@ -128,7 +129,7 @@ app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
         `);
 
     } catch (err) {
-        console.error(err);
+        console.error("Upload Pipeline Error:", err);
         res.status(500).send(`Processing Pipeline Error: ${err.message}`);
     }
 });
