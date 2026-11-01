@@ -226,6 +226,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 size: A4 portrait;
                 margin: 0;
             }
+
             html, body {
                 margin: 0;
                 padding: 0;
@@ -257,7 +258,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 padding: 0;
             }
 
-            .print-canvas {
+            .exam-sheet {
                 width: 210mm;
                 min-height: 297mm;
                 margin: 10mm auto;
@@ -270,7 +271,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 overflow: hidden;
             }
 
-            .print-canvas::before {
+            .exam-sheet::before {
                 content: "THE NOBLE STANDARD SCHOOLS";
                 position: absolute;
                 left: 50%;
@@ -285,7 +286,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 z-index: 0;
             }
 
-            .print-canvas > * {
+            .exam-sheet > * {
                 position: relative;
                 z-index: 1;
             }
@@ -399,7 +400,7 @@ function generatePrintTemplate(metadata, auditResults) {
             }
 
             @media screen and (max-width: 800px) {
-                .print-canvas {
+                .exam-sheet {
                     width: 100%;
                     min-height: auto;
                     margin: 0;
@@ -414,20 +415,33 @@ function generatePrintTemplate(metadata, auditResults) {
             }
 
             @media print {
+                @page {
+                    size: A4 portrait;
+                    margin: 0;
+                    marks: 0;
+                    bleed: 0;
+                }
+
                 html, body {
                     margin: 0;
                     padding: 0;
                     background: #fff;
+                    zoom: 1;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
                 }
+
                 .officer-alert-box { display: none !important; }
                 .no-print { display: none !important; }
-                .print-canvas {
+                .exam-sheet {
                     width: 210mm;
                     min-height: 297mm;
                     margin: 0;
                     padding: 10mm 12mm 14mm 12mm;
                     border: 2px solid #000;
                     box-shadow: none;
+                    overflow: visible;
+                    page-break-after: always;
                 }
             }
         </style>
@@ -439,7 +453,7 @@ function generatePrintTemplate(metadata, auditResults) {
         </div>
 
         ${alertBanner}
-        <div class="print-canvas">
+        <div class="exam-sheet">
             <table class="header-table">
                 <tr>
                     <td class="logo-cell"><img src="/logo.png" alt="School Logo" class="logo-img"></td>
