@@ -162,11 +162,18 @@ function generatePrintTemplate(metadata, auditResults) {
             @media print {
                 html, body { background-color: #fff; background: none; }
                 .officer-alert-box { display: none !important; }
+                .no-print { display: none !important; }
                 .print-canvas { width: 100%; box-shadow: none; margin: 0; padding: 20mm; }
             }
         </style>
     </head>
     <body>
+        <!-- Floating Print Action Bar for Exam Officer -->
+        <div class="no-print" style="position: fixed; top: 15px; right: 15px; z-index: 9999; display: flex; gap: 8px;">
+            <button onclick="window.print()" style="background-color: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 13px;">🖨️ Print / Save PDF</button>
+            <button onclick="window.close()" style="background-color: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 13px;">✕ Close</button>
+        </div>
+
         ${alertBanner}
         <div class="print-canvas">
             <table class="header-table">
