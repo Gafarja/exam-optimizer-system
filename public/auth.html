@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authentication - School Exam Portal</title>
+    <meta name="theme-color" content="#1F4E30">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon-192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon-192.svg">
     <style>
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -58,8 +62,19 @@
         }
         .toggle-link a { color: #2563eb; text-decoration: none; font-weight: 600; }
         .hidden { display: none; }
+        .install-btn {
+            margin-top: 14px;
+            background: #1F4E30;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 11px 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            display: none;
+        }
 
-        /* Mobile Responsiveness for Android & Small Screens */
         @media screen and (max-width: 480px) {
             body {
                 align-items: flex-start;
@@ -79,7 +94,6 @@
 <body>
 
     <div class="auth-container">
-        <!-- SIGN UP FORM -->
         <div id="signup-box">
             <h2>Create Account</h2>
             <form action="/api/signup" method="POST">
@@ -103,7 +117,6 @@
                     </select>
                 </div>
 
-                <!-- Hidden Admin Passkey Field -->
                 <div class="form-group hidden" id="adminCodeGroup">
                     <label>Admin Secret Passkey</label>
                     <input type="password" name="adminCode" placeholder="Enter school officer passkey">
@@ -114,9 +127,9 @@
             <div class="toggle-link">
                 Already have an account? <a href="#" onclick="toggleAuth()">Login here</a>
             </div>
+            <button id="installBtn" class="install-btn" type="button">Install App</button>
         </div>
 
-        <!-- LOGIN FORM -->
         <div id="login-box" class="hidden">
             <h2>Welcome Back</h2>
             <form action="/api/login" method="POST">
@@ -133,34 +146,63 @@
             <div class="toggle-link">
                 New to the portal? <a href="#" onclick="toggleAuth()">Create account</a>
             </div>
+            <button id="installBtnLogin" class="install-btn" type="button">Install App</button>
         </div>
     </div>
 
     <script>
-    // Switches visibility between login and signup boxes
-    function toggleAuth() {
-        document.getElementById('signup-box').classList.toggle('hidden');
-        document.getElementById('login-box').classList.toggle('hidden');
-    }
-
-    // Toggles the visibility of the admin passkey input field based on role selection
-    function toggleAdminCode() {
-        const roleSelect = document.getElementById('roleSelect');
-        const adminCodeGroup = document.getElementById('adminCodeGroup');
-        if (roleSelect.value === 'officer') {
-            adminCodeGroup.classList.remove('hidden');
-        } else {
-            adminCodeGroup.classList.add('hidden');
+        function toggleAuth() {
+            document.getElementById('signup-box').classList.toggle('hidden');
+            document.getElementById('login-box').classList.toggle('hidden');
         }
-    }
 
-    // Automatically shows the correct form based on what button was clicked on the homepage
-    window.addEventListener('DOMContentLoaded', () => {
-        if (window.location.hash === '#login') {
-            document.getElementById('signup-box').classList.add('hidden');
-            document.getElementById('login-box').classList.remove('hidden');
+        function toggleAdminCode() {
+            const roleSelect = document.getElementById('roleSelect');
+            const adminCodeGroup = document.getElementById('adminCodeGroup');
+            if (roleSelect.value === 'officer') {
+                adminCodeGroup.classList.remove('hidden');
+            } else {
+                adminCodeGroup.classList.add('hidden');
+            }
         }
-    });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch((err) => console.error('SW registration failed:', err));
+            });
+        }
+
+        let deferredPrompt = null;
+        const installButtons = [document.getElementById('installBtn'), document.getElementById('installBtnLogin')];
+
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            deferredPrompt = event;
+            installButtons.forEach((button) => {
+                if (button) button.style.display = 'block';
+            });
+        });
+
+        installButtons.forEach((button) => {
+            if (!button) return;
+            button.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const choice = await deferredPrompt.userChoice;
+                if (choice.outcome === 'accepted') {
+                    console.log('PWA install accepted');
+                }
+                deferredPrompt = null;
+                button.style.display = 'none';
+            });
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.location.hash === '#login') {
+                document.getElementById('signup-box').classList.add('hidden');
+                document.getElementById('login-box').classList.remove('hidden');
+            }
+        });
     </script>
 </body>
 </html>

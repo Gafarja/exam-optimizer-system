@@ -4,27 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Portal - The Noble Standard Schools</title>
+    <meta name="theme-color" content="#1F4E30">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon-192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon-192.svg">
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; }
         .dashboard-container { max-width: 850px; margin: 30px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px; }
         h1 { color: #1F4E30; margin: 0; font-size: 24px; }
         .logout-btn { background-color: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; }
-        
+        .install-btn {
+            background: #1F4E30; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; display: none;
+        }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .form-group { display: flex; flex-direction: column; }
         label { margin-bottom: 6px; color: #475569; font-weight: 500; font-size: 14px; }
         select, input[type="text"] { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; width: 100%; box-sizing: border-box; }
-        
         .upload-area { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 30px; text-align: center; background-color: #f8fafc; cursor: pointer; margin-bottom: 20px; }
         .submit-btn { width: 100%; padding: 12px; background-color: #1F4E30; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; }
         .submit-btn:hover { background-color: #163621; }
-        
         .history-section { margin-top: 40px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; white-space: nowrap; }
         th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
         th { background-color: #f1f5f9; color: #475569; }
-        
         .delete-btn {
             background-color: #ef4444;
             color: white;
@@ -36,8 +39,6 @@
             font-size: 12px;
         }
         .delete-btn:hover { background-color: #b91c1c; }
-
-        /* Mobile Responsive Adjustments */
         @media (max-width: 768px) {
             body { padding: 10px; }
             .dashboard-container { padding: 15px; margin: 10px auto; }
@@ -54,7 +55,10 @@
                 <h1>Teacher Submission Portal</h1>
                 <p style="color: #64748b; margin: 4px 0 0 0;">The Noble Standard Schools Workspace</p>
             </div>
-            <a href="/auth.html#login" class="logout-btn">Log Out</a>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="installBtn" class="install-btn" type="button">Install App</button>
+                <a href="/auth.html#login" class="logout-btn">Log Out</a>
+            </div>
         </div>
 
         <form action="/api/upload-exam" method="POST" enctype="multipart/form-data">
@@ -86,7 +90,7 @@
                         <option value="2026/2027">2026/2027</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label>Examination Term</label>
                     <select name="term" required>
@@ -144,9 +148,9 @@
 
     <script>
         const customCurriculum = {
-            "JSS_NEW": ["English Language", "Mathematics", "Yoruba", "Intermediate Science", "PHE", "Digital Technologies", "IRS", "History", "Social and Citizenship Studies", "Business Studies", "Arabic", "Quran", "Livestock (Trade Subject)"],
-            "JSS3_TRADITIONAL": ["English Language", "Mathematics", "Yoruba", "Basic Science", "Basic Technology", "PHE", "Computer Studies", "IRS", "History", "Social Studies", "Civic Education", "Business Studies", "Arabic", "Quran", "Agricultural Science"],
-            "SSS": ["English Language", "Mathematics", "Livestock (Trade Subject)", "Citizenship Studies and Heritage Studies", "Digital Technologies", "IRS 1", "Quran", "Physics", "Literature", "Commerce", "Chemistry", "Accounting", "Biology", "IRS 2", "Marketing", "Further Math", "Economics", "Geography", "Agricultural Science", "Government"]
+            "JSS_NEW": ["English Language", "Mathematics", "Yoruba", "Intermediate Science", "PHE", "Digital Technologies", "IRS", "History", "Social and Citizenship Studies", "Business Studies", "Arabic", "Fine Arts"],
+            "JSS3_TRADITIONAL": ["English Language", "Mathematics", "Yoruba", "Basic Science", "Basic Technology", "PHE", "Computer Studies", "IRS", "History", "Social Studies", "Civic Education", "Business Studies"],
+            "SSS": ["English Language", "Mathematics", "Livestock (Trade Subject)", "Citizenship Studies and Heritage Studies", "Digital Technologies", "IRS 1", "Quran", "Physics", "Literature", "Commerce", "Accounting", "Biology"]
         };
 
         function updateSubjects() {
@@ -160,7 +164,7 @@
             else if (classVal.startsWith("JSS")) targetKey = "JSS_NEW";
 
             customCurriculum[targetKey].forEach(subject => {
-                let opt = document.createElement("option");
+                const opt = document.createElement("option");
                 opt.value = subject;
                 opt.text = subject.toUpperCase();
                 subjectSelect.appendChild(opt);
@@ -172,12 +176,12 @@
                 const response = await fetch('/api/teacher-history');
                 const data = await response.json();
                 const tbody = document.getElementById('history-rows');
-                
+
                 if(data.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">No past exam papers found.</td></tr>`;
                     return;
                 }
-                
+
                 tbody.innerHTML = data.map(row => `
                     <tr>
                         <td><strong>${row.subject.toUpperCase()}</strong></td>
@@ -207,13 +211,38 @@
 
                 if (result.success) {
                     alert(result.message);
-                    loadHistory(); 
+                    loadHistory();
                 } else {
                     alert("Deletion Failed: " + result.error);
                 }
             } catch (err) {
                 alert("Server connection error during deletion.");
             }
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch((err) => console.error('Service worker registration failed:', err));
+            });
+        }
+
+        let deferredPrompt = null;
+        const installButton = document.getElementById('installBtn');
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            deferredPrompt = event;
+            if (installButton) installButton.style.display = 'inline-block';
+        });
+
+        if (installButton) {
+            installButton.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const choice = await deferredPrompt.userChoice;
+                if (choice.outcome === 'accepted') console.log('PWA install accepted');
+                deferredPrompt = null;
+                installButton.style.display = 'none';
+            });
         }
 
         window.onload = loadHistory;

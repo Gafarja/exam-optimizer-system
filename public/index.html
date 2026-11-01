@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Optimization System</title>
+    <title>Exam Optimization Portal</title>
+    <meta name="theme-color" content="#1F4E30">
+    <meta name="description" content="Exam Optimizer System for teachers and exam officers">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon-192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon-192.svg">
     <style>
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -29,6 +34,7 @@
             display: flex;
             gap: 12px;
             justify-content: center;
+            flex-wrap: wrap;
         }
         .btn {
             padding: 12px 24px;
@@ -50,12 +56,45 @@
     <div class="container">
         <h1>Exam Optimization Portal</h1>
         <p>Welcome to the School Examination Office portal. Please sign in or create an account to manage question submissions.</p>
-        
+
         <div class="btn-group">
             <a href="auth.html#login" class="btn btn-primary">Login</a>
             <a href="auth.html#signup" class="btn btn-secondary">Sign Up</a>
+            <button id="installAppBtn" class="btn btn-secondary" type="button" style="display:none;">Install App</button>
         </div>
     </div>
 
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch((err) => {
+                    console.error('Service worker registration failed:', err);
+                });
+            });
+        }
+
+        let deferredPrompt = null;
+        const installAppBtn = document.getElementById('installAppBtn');
+
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            deferredPrompt = event;
+            if (installAppBtn) installAppBtn.style.display = 'inline-block';
+        });
+
+        if (installAppBtn) {
+            installAppBtn.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+
+                deferredPrompt.prompt();
+                const choice = await deferredPrompt.userChoice;
+                if (choice.outcome === 'accepted') {
+                    console.log('App installation accepted');
+                }
+                deferredPrompt = null;
+                installAppBtn.style.display = 'none';
+            });
+        }
+    </script>
 </body>
 </html>
