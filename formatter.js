@@ -21,7 +21,7 @@ async function extractTextFromDocxBuffer(buffer) {
 }
 
 /**
- * Advanced Economy Engine with Multi-Section Auto-Numbering Corrections & Redundancy Auditor
+ * Clean Exam Auditor & Template Extraction Engine
  */
 function optimizeExamText(rawText) {
     if (!rawText) return { html: "<p style='color:red;'>No text content could be extracted.</p>", anomalies: [] };
@@ -38,52 +38,47 @@ function optimizeExamText(rawText) {
 
         let lowerLine = line.toLowerCase();
         
-        // 1. AUDITOR: Scan line for draft placeholders or excessive/irrelevant statements
+        // 1. Detect placeholders or draft text
         if (lowerLine.includes("lorem ipsum") || lowerLine.includes("todo") || lowerLine.includes("insert here") || lowerLine.includes("draft")) {
-            anomalies.push(`Draft text or placeholder words detected: "${line.substring(0, 50)}..."`);
-        }
-        if (line.includes("[") || line.includes("]")) {
-            anomalies.push(`Possible placeholder brackets left behind: "${line.substring(0, 50)}..."`);
-        }
-        if (lowerLine.length > 200 && !lowerLine.match(/^\d+[\).\-\s]/)) {
-            anomalies.push(`Excessive or long unstructured paragraph detected (potentially irrelevant instructions): "${line.substring(0, 60)}..."`);
+            anomalies.push(`Draft text or placeholder words detected: "${line.substring(0, 40)}..."`);
         }
 
-        // Strip out manual duplicate headers typed by teachers
-        if (lowerLine.includes("noble standard") || lowerLine.includes("third term examination") || lowerLine.includes("islamic religious studies") || lowerLine.includes("question paper") || lowerLine.includes("session:") || lowerLine.includes("time allowed:") || lowerLine.includes("total marks")) {
-            anomalies.push(`Stripped redundant teacher-typed header block: "${line.substring(0, 45)}..."`);
-            continue;
+        // 2. Filter out redundant metadata fields typed by teachers (since the template handles them)
+        if (
+            lowerLine.startsWith("name:") || lowerLine.startsWith("date:") || 
+            lowerLine.includes("total marks") || lowerLine.includes("time allowed") ||
+            lowerLine.includes("session:") || lowerLine.includes("third term examination") ||
+            lowerLine.includes("islamic religious studies") || lowerLine.includes("class:")
+        ) {
+            continue; // Skip teacher-typed header duplicates
         }
 
-        // 2. CRITICAL SECTION RESET DETECTOR: If a row switches to Theory questions, reset counter to 1
-        if (lowerLine.includes("theory question") || lowerLine.includes("section b") || lowerLine.includes("paper ii") || lowerLine.includes("theory parts")) {
+        // 3. Section Headers (Section A, Section B, Theory, etc.)
+        if (lowerLine.includes("section a") || lowerLine.includes("section b") || lowerLine.includes("theory question") || lowerLine.includes("objective")) {
             currentQuestionCounter = 1;
             optimizedLines.push(`</div><div class="section-title">${line.toUpperCase()}</div><div class="two-column-zone">`);
             continue;
         }
 
-        // 3. AUTO-NUMBERING CORRECTION: Re-index matching questions
+        // 4. Question Extraction & Numbering Normalization
         let questionMatch = line.match(/^(\d+)[\).\-\s]+(.*)/);
         if (questionMatch) {
             let originalNumber = parseInt(questionMatch[1]);
             let questionContent = questionMatch[2].trim();
 
             if (originalNumber !== currentQuestionCounter) {
-                anomalies.push(`Resolved numbering alignment: Standardized Question ${originalNumber} to Section Index ${currentQuestionCounter}.`);
+                anomalies.push(`Standardized Question ${originalNumber} to sequence index ${currentQuestionCounter}.`);
             }
 
-            line = `${currentQuestionCounter}. ${questionContent}`;
+            line = `<strong>${currentQuestionCounter}.</strong> ${questionContent}`;
             currentQuestionCounter++;
+            optimizedLines.push(`<p class="exam-question">${line}</p>`);
+            continue;
         }
 
-        // 4. MCQ OPTIONS INLINE FORCING ENGINE
+        // 5. Clean Multiple Choice Options Formatting (Stacked / Wrapped cleanly to prevent overlapping)
         if (line.match(/^([A-D]|[a-d])[\).\-]/) || line.match(/^\(([A-D]|[a-d])\)/)) {
-            let optionGroup = line;
-            while (i + 1 < lines.length && (lines[i + 1].trim().match(/^([A-D]|[a-d])[\).\-]/) || lines[i + 1].trim().match(/^\(([A-D]|[a-d])\)/))) {
-                i++;
-                optionGroup += ` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${lines[i].trim()}`;
-            }
-            optimizedLines.push(`<div class="options-row">${optionGroup}</div>`);
+            optimizedLines.push(`<div class="option-item">${line}</div>`);
         } else {
             if (line.match(/^([a-z])[\).\-\s]/)) {
                 optimizedLines.push(`<p class="sub-question-text">${line}</p>`);
@@ -130,46 +125,60 @@ function generatePrintTemplate(metadata, auditResults) {
             }
             .officer-alert-box {
                 background-color: #fee2e2; border: 2px solid #ef4444;
-                padding: 15px; border-radius: 6px; margin: 20px auto;
-                max-width: 210mm; font-family: Arial, sans-serif; font-size: 11pt; color: #991b1b; box-sizing: border-box;
+                padding: 12px; border-radius: 6px; margin: 15px auto;
+                max-width: 210mm; font-family: Arial, sans-serif; font-size: 10pt; color: #991b1b; box-sizing: border-box;
             }
-            .officer-alert-box ul { margin: 5px 0; padding-left: 20px; }
+            .officer-alert-box ul { margin: 4px 0; padding-left: 18px; }
             .print-canvas { 
-                width: 210mm; min-height: 297mm; margin: 30px auto; 
+                width: 210mm; min-height: 297mm; margin: 20px auto; 
                 background: #fff; padding: 15mm; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                 box-sizing: border-box; position: relative;
             }
-            /* Header Table with strict single-line school title formatting */
+            /* Official Header Layout */
             .header-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
             .logo-cell { width: 75px; vertical-align: middle; text-align: left; }
             .logo-img { width: 70px; height: auto; display: block; }
             .title-cell { vertical-align: middle; text-align: center; }
-            .school-title { font-size: 17pt; font-weight: bold; margin: 0; white-space: nowrap; letter-spacing: 0.5px; }
-            .term-title { font-size: 11pt; font-weight: bold; margin: 4px 0 2px 0; text-transform: uppercase; }
+            .school-title { font-size: 16pt; font-weight: bold; margin: 0; white-space: nowrap; letter-spacing: 0.5px; }
+            .term-title { font-size: 11pt; font-weight: bold; margin: 3px 0 2px 0; text-transform: uppercase; }
             .subject-title { font-size: 13pt; font-weight: bold; margin: 0; text-transform: uppercase; }
             .boundary-line { border-bottom: 3px solid #000; margin: 6px 0; }
-            .meta-row { display: flex; justify-content: space-between; font-size: 10.5pt; font-weight: bold; margin-bottom: 4px; padding: 2px 0; }
+            .meta-row { display: flex; justify-content: space-between; font-size: 10pt; font-weight: bold; margin-bottom: 4px; padding: 2px 0; }
             
-            .two-column-zone { column-count: 2; column-gap: 25px; text-align: justify; }
-            .section-title { font-size: 11pt; font-weight: bold; margin: 15px 0 8px 0; text-decoration: underline; text-transform: uppercase; column-span: all; }
-            .exam-text { margin: 4px 0; font-size: 9.8pt; line-height: 1.3; page-break-inside: avoid; }
-            .sub-question-text { margin: 2px 0 2px 12px; font-size: 9.8pt; line-height: 1.25; page-break-inside: avoid; }
-            .options-row { margin: 2px 0 5px 10px; font-size: 9.8pt; white-space: nowrap; page-break-inside: avoid; }
+            /* Professional Dual-Column Formatting */
+            .two-column-zone { column-count: 2; column-gap: 20px; text-align: justify; }
+            .section-title { font-size: 10.5pt; font-weight: bold; margin: 14px 0 6px 0; text-decoration: underline; text-transform: uppercase; column-span: all; }
+            .exam-question { margin: 6px 0 2px 0; font-size: 9.5pt; line-height: 1.3; page-break-inside: avoid; column-break-inside: avoid; }
+            .exam-text { margin: 3px 0; font-size: 9.5pt; line-height: 1.3; page-break-inside: avoid; }
+            .sub-question-text { margin: 2px 0 2px 10px; font-size: 9.5pt; line-height: 1.25; page-break-inside: avoid; }
             
+            /* Fixed Option styling to prevent overlapping text */
+            .option-item { 
+                margin: 2px 0 4px 12px; 
+                font-size: 9.2pt; 
+                line-height: 1.25; 
+                page-break-inside: avoid;
+                display: inline-block;
+                width: 44%;
+                margin-right: 2%;
+                vertical-align: top;
+            }
+
             .page-footer { position: fixed; bottom: -8mm; left: 0; right: 0; text-align: center; font-size: 9pt; font-weight: bold; }
             .page-footer::after { counter-increment: pageNumber; content: "Page " counter(pageNumber); }
 
             @media screen and (max-width: 800px) {
                 html, body { background-color: #ffffff; padding: 0; margin: 0; }
-                .officer-alert-box { max-width: 100%; margin: 10px; padding: 10px; font-size: 10pt; }
+                .officer-alert-box { max-width: 100%; margin: 10px; padding: 8px; font-size: 9pt; }
                 .print-canvas { width: 100% !important; min-height: auto; margin: 0 !important; padding: 10px !important; box-shadow: none !important; }
-                .logo-cell { width: 50px; }
-                .logo-img { width: 45px; }
-                .school-title { font-size: 12pt; white-space: normal; } /* Wrap only on extremely narrow mobile screens if needed */
-                .term-title { font-size: 9.5pt; }
-                .subject-title { font-size: 10.5pt; }
-                .meta-row { font-size: 8.5pt; flex-direction: column; gap: 2px; }
+                .logo-cell { width: 45px; }
+                .logo-img { width: 40px; }
+                .school-title { font-size: 11pt; white-space: normal; }
+                .term-title { font-size: 9pt; }
+                .subject-title { font-size: 10pt; }
+                .meta-row { font-size: 8pt; flex-direction: column; gap: 2px; }
                 .two-column-zone { column-count: 1 !important; }
+                .option-item { width: 100% !important; margin-right: 0 !important; }
             }
             @media print {
                 html, body { background-color: #fff; background: none; }
