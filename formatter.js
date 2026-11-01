@@ -42,17 +42,26 @@ function detectOption(line) {
 }
 
 function optimizeExamText(rawText) {
-    if (!rawText) return { html: "<p style='color:red;'>No text content could be extracted.</p>", anomalies: [] };
+    if (!rawText) return {
+        html: "<p style='color:red;'>No text content could be extracted.</p>",
+        anomalies: [],
+        questionIssues: [],
+        optionIssues: [],
+        summary: 'No content extracted.',
+        hasIssues: false
+    };
 
     const lines = normalizeExamText(rawText).split('\n');
     const optimizedLines = [];
     const anomalies = [];
+    const questionIssues = [];
+    const optionIssues = [];
 
     let inSection = false;
     let inTheorySection = false;
     let expectedQuestionNumber = 1;
+    let currentQuestionNumber = null;
     let currentQuestionOptions = [];
-    let hasSeenQuestionInCurrentSection = false;
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
@@ -68,8 +77,8 @@ function optimizeExamText(rawText) {
             inSection = true;
             inTheorySection = lowerLine.includes('section b') || lowerLine.includes('theory');
             expectedQuestionNumber = 1;
+            currentQuestionNumber = null;
             currentQuestionOptions = [];
-            hasSeenQuestionInCurrentSection = false;
 
             optimizedLines.push(`</div><div class="section-banner"><div class="section-accent-bar"></div><div class="section-text-block"><div class="section-title">${line.toUpperCase()}</div>`);
 
@@ -109,26 +118,54 @@ function optimizeExamText(rawText) {
         if (question) {
             const { number, content } = question;
             if (number !== expectedQuestionNumber) {
-                anomalies.push(`Question numbering mismatch: found ${number}, expected ${expectedQuestionNumber}.`);
+                const msg = `Question numbering mismatch: found ${number}, expected ${expectedQuestionNumber}.`;
+                anomalies.push(msg);
+                questionIssues.push({
+                    type: 'question-number',
+                    questionNumber: number,
+                    expected: expectedQuestionNumber,
+                    line: i + 1,
+                    message: msg
+                });
             }
-            if (number > 0) {
-                expectedQuestionNumber = number + 1;
-            }
-            hasSeenQuestionInCurrentSection = true;
+
+            currentQuestionNumber = number || expectedQuestionNumber;
+            expectedQuestionNumber = number ? number + 1 : expectedQuestionNumber + 1;
             currentQuestionOptions = [];
-            optimizedLines.push(`<div class="exam-question"><strong>${number || expectedQuestionNumber - 1}.</strong> ${content}</div>`);
+
+            optimizedLines.push(`<div class="exam-question"><strong>${currentQuestionNumber}.</strong> ${content}</div>`);
             continue;
         }
 
         const option = detectOption(line);
         if (option) {
             const expectedLetter = ['A', 'B', 'C', 'D'][currentQuestionOptions.length] || null;
+
             if (expectedLetter && option.letter !== expectedLetter) {
-                anomalies.push(`Option letter mismatch: found ${option.letter}, expected ${expectedLetter} for the current question.`);
+                const msg = `Option letter mismatch: found ${option.letter}, expected ${expectedLetter} for the current question.`;
+                anomalies.push(msg);
+                optionIssues.push({
+                    type: 'option-letter',
+                    questionNumber: currentQuestionNumber,
+                    found: option.letter,
+                    expected: expectedLetter,
+                    line: i + 1,
+                    message: msg
+                });
             }
+
             if (currentQuestionOptions.includes(option.letter)) {
-                anomalies.push(`Repeated option letter detected: ${option.letter} appears more than once in the same question.`);
+                const msg = `Repeated option letter detected: ${option.letter} appears more than once in the same question.`;
+                anomalies.push(msg);
+                optionIssues.push({
+                    type: 'repeated-option',
+                    questionNumber: currentQuestionNumber,
+                    letter: option.letter,
+                    line: i + 1,
+                    message: msg
+                });
             }
+
             currentQuestionOptions.push(option.letter);
             optimizedLines.push(`<div class="option-item"><strong>${option.letter}.</strong> ${option.text}</div>`);
             continue;
@@ -149,16 +186,25 @@ function optimizeExamText(rawText) {
         }
     }
 
+    const summary = anomalies.length > 0
+        ? `Found ${questionIssues.length} question-number issue(s) and ${optionIssues.length} option issue(s).`
+        : 'No numbering or option errors detected.';
+
     return {
         html: `<div class="two-column-zone">${optimizedLines.join('\n')}</div>`,
-        anomalies: anomalies
+        anomalies,
+        questionIssues,
+        optionIssues,
+        summary,
+        hasIssues: anomalies.length > 0
     };
 }
 
 function generatePrintTemplate(metadata, auditResults) {
-    const alertBanner = auditResults.anomalies.length > 0 ? `
+    const alertBanner = auditResults.hasIssues ? `
         <div class="officer-alert-box">
             <strong>⚠️ EXAM AUDITOR REPORT FOR EXAM OFFICER:</strong>
+            <div style="margin-top: 8px; font-size: 10pt; color: #7f1d1d; font-weight: 600;">${auditResults.summary}</div>
             <ul>
                 ${auditResults.anomalies.map((err) => `<li>${err}</li>`).join('')}
             </ul>
