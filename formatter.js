@@ -1,12 +1,12 @@
 const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 
-async function extractTextFromPdfBuffer(buffer) {
+async function extractTextFromDocx(filePath) {
     try {
-        const data = await pdfParse(buffer);
-        return data.text;
+        const result = await mammoth.extractRawText({ path: filePath });
+        return result.value;
     } catch (error) {
-        console.error("Error reading PDF buffer:", error);
+        console.error("Error reading file with Mammoth:", error);
         throw error;
     }
 }
@@ -451,7 +451,6 @@ function generatePrintTemplate(metadata, auditResults) {
         </style>
     </head>
     <body>
-        <!-- Floating Manual Controls (Hidden automatically during print) -->
         <div class="no-print" style="position: fixed; top: 15px; right: 15px; z-index: 9999; display: flex; gap: 8px; background: rgba(255,255,255,0.9); padding: 8px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
             <button onclick="window.print()" style="background-color: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif;">🖨️ Print Document</button>
             <button onclick="window.close()" style="background-color: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif;">✕ Close</button>
@@ -489,7 +488,6 @@ function generatePrintTemplate(metadata, auditResults) {
         </div>
 
         <script>
-            // Automatically trigger the standard browser print dialog on load
             window.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     window.print();
