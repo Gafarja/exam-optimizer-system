@@ -224,7 +224,7 @@ function generatePrintTemplate(metadata, auditResults) {
         <style>
             @page {
                 size: A4 portrait;
-                margin: 0;
+                margin: 10mm;
             }
 
             html, body {
@@ -235,10 +235,6 @@ function generatePrintTemplate(metadata, auditResults) {
                 font-family: "Times New Roman", Georgia, serif;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-            }
-
-            body {
-                display: block;
             }
 
             .officer-alert-box {
@@ -260,14 +256,12 @@ function generatePrintTemplate(metadata, auditResults) {
 
             .exam-sheet {
                 width: 210mm;
-                min-height: 297mm;
                 margin: 10mm auto;
                 background: white;
                 padding: 12mm 12mm 14mm 12mm;
                 box-sizing: border-box;
                 border: 2px solid #000;
                 position: relative;
-                overflow: hidden;
                 box-shadow: 0 4px 18px rgba(0,0,0,0.12);
             }
 
@@ -362,6 +356,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 align-items: center;
                 margin: 14px 0 8px 0;
                 column-span: all;
+                break-inside: avoid;
             }
             .section-accent-bar {
                 width: 4px;
@@ -390,31 +385,30 @@ function generatePrintTemplate(metadata, auditResults) {
                 column-gap: 24px;
                 column-rule: 1px solid #000;
                 text-align: justify;
-                column-fill: balance;
             }
 
             .exam-question {
                 margin: 8px 0 4px 0;
                 font-size: 11pt;
                 line-height: 1.4;
-                page-break-inside: avoid;
                 break-inside: avoid;
+                page-break-inside: avoid;
                 overflow-wrap: anywhere;
             }
             .exam-text {
                 margin: 4px 0;
                 font-size: 11pt;
                 line-height: 1.4;
-                page-break-inside: avoid;
                 break-inside: avoid;
+                page-break-inside: avoid;
                 overflow-wrap: anywhere;
             }
             .sub-question-text {
                 margin: 3px 0 3px 12px;
                 font-size: 11pt;
                 line-height: 1.35;
-                page-break-inside: avoid;
                 break-inside: avoid;
+                page-break-inside: avoid;
                 overflow-wrap: anywhere;
             }
             .option-item {
@@ -423,24 +417,22 @@ function generatePrintTemplate(metadata, auditResults) {
                 line-height: 1.35;
                 display: inline-block;
                 margin-right: 15px;
-                page-break-inside: avoid;
                 break-inside: avoid;
+                page-break-inside: avoid;
             }
 
             .page-footer {
-                position: absolute;
-                left: 0;
-                right: 0;
-                bottom: 8mm;
                 text-align: center;
                 font-size: 9pt;
                 font-weight: bold;
+                margin-top: 20px;
+                border-top: 1px solid #ccc;
+                padding-top: 5px;
             }
 
             @media screen and (max-width: 800px) {
                 .exam-sheet {
                     width: 100%;
-                    min-height: auto;
                     margin: 0;
                     padding: 20px;
                     box-shadow: none;
@@ -455,7 +447,7 @@ function generatePrintTemplate(metadata, auditResults) {
             @media print {
                 @page {
                     size: A4 portrait;
-                    margin: 0;
+                    margin: 10mm;
                 }
                 html, body {
                     margin: 0;
@@ -467,13 +459,11 @@ function generatePrintTemplate(metadata, auditResults) {
                 .officer-alert-box { display: none !important; }
                 .no-print { display: none !important; }
                 .exam-sheet {
-                    width: 210mm;
-                    min-height: 297mm;
-                    margin: 0;
-                    padding: 12mm 12mm 14mm 12mm;
-                    border: 2px solid #000;
-                    box-shadow: none;
-                    overflow: visible;
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border: none !important;
+                    box-shadow: none !important;
                 }
             }
         </style>
