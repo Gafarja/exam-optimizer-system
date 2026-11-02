@@ -1,12 +1,12 @@
 const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 
-async function extractTextFromDocx(filePath) {
+async function extractTextFromPdfBuffer(buffer) {
     try {
-        const result = await mammoth.extractRawText({ path: filePath });
-        return result.value;
+        const data = await pdfParse(buffer);
+        return data.text;
     } catch (error) {
-        console.error("Error reading file with Mammoth:", error);
+        console.error("Error reading PDF buffer:", error);
         throw error;
     }
 }
