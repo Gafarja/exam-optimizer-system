@@ -1,4 +1,5 @@
 const mammoth = require('mammoth');
+const pdfParse = require('pdf-parse');
 
 async function extractTextFromDocx(filePath) {
     try {
@@ -16,6 +17,16 @@ async function extractTextFromDocxBuffer(buffer) {
         return result.value;
     } catch (error) {
         console.error("Error reading buffer with Mammoth:", error);
+        throw error;
+    }
+}
+
+async function extractTextFromPdfBuffer(buffer) {
+    try {
+        const data = await pdfParse(buffer);
+        return data.text;
+    } catch (error) {
+        console.error("Error reading PDF buffer:", error);
         throw error;
     }
 }
@@ -204,7 +215,7 @@ function optimizeExamText(rawText) {
 
 function generatePrintTemplate(metadata, auditResults) {
     const alertBanner = auditResults.hasIssues ? `
-        <div class="officer-alert-box">
+        <div class="officer-alert-box no-print">
             <strong>⚠️ EXAM AUDITOR REPORT FOR EXAM OFFICER:</strong>
             <div style="margin-top: 8px; font-size: 10pt; color: #7f1d1d; font-weight: 600;">${auditResults.summary}</div>
             <ul>
@@ -230,7 +241,7 @@ function generatePrintTemplate(metadata, auditResults) {
             html, body {
                 margin: 0;
                 padding: 0;
-                background: #efefef;
+                background: #fff;
                 color: #111;
                 font-family: "Times New Roman", Georgia, serif;
                 -webkit-print-color-adjust: exact;
@@ -255,16 +266,16 @@ function generatePrintTemplate(metadata, auditResults) {
             }
 
             .exam-sheet {
-                width: 210mm;
-                margin: 10mm auto;
+                width: 100%;
+                max-width: 210mm;
+                margin: 0 auto;
                 background: white;
-                padding: 12mm 12mm 14mm 12mm;
+                padding: 10mm;
                 box-sizing: border-box;
-                border: 2px solid #000;
                 position: relative;
-                box-shadow: 0 4px 18px rgba(0,0,0,0.12);
             }
 
+            /* Institutional Watermark */
             .exam-sheet::before {
                 content: "THE NOBLE STANDARD SCHOOLS";
                 position: absolute;
@@ -274,7 +285,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 font-size: 32pt;
                 font-weight: bold;
                 letter-spacing: 2px;
-                color: rgba(0,0,0,0.04);
+                color: rgba(0,0,0,0.03);
                 white-space: nowrap;
                 pointer-events: none;
                 z-index: 0;
@@ -305,7 +316,7 @@ function generatePrintTemplate(metadata, auditResults) {
                 vertical-align: middle;
             }
             .school-title {
-                font-size: 21pt;
+                font-size: 20pt;
                 font-weight: bold;
                 letter-spacing: 0.5px;
                 margin: 0;
@@ -331,6 +342,8 @@ function generatePrintTemplate(metadata, auditResults) {
                 border-collapse: collapse;
                 margin-top: 10px;
                 margin-bottom: 10px;
+                border-bottom: 2px solid #000;
+                padding-bottom: 5px;
             }
             .meta-table td {
                 padding: 4px 2px;
@@ -345,7 +358,7 @@ function generatePrintTemplate(metadata, auditResults) {
             }
             .meta-value-wide {
                 display: inline-block;
-                width: 85%;
+                width: 80%;
                 border-bottom: 1px solid #000;
                 font-weight: normal;
                 padding-bottom: 1px;
@@ -360,9 +373,9 @@ function generatePrintTemplate(metadata, auditResults) {
             }
             .section-accent-bar {
                 width: 4px;
-                height: 30px;
+                height: 26px;
                 background: #000;
-                margin-right: 12px;
+                margin-right: 10px;
             }
             .section-text-block {
                 display: flex;
@@ -375,48 +388,48 @@ function generatePrintTemplate(metadata, auditResults) {
                 text-transform: uppercase;
             }
             .section-instruction {
-                font-size: 10.5pt;
+                font-size: 10pt;
                 font-style: italic;
-                margin-top: 3px;
+                margin-top: 2px;
             }
 
             .two-column-zone {
                 column-count: 2;
-                column-gap: 24px;
+                column-gap: 20px;
                 column-rule: 1px solid #000;
                 text-align: justify;
             }
 
             .exam-question {
                 margin: 8px 0 4px 0;
-                font-size: 11pt;
-                line-height: 1.4;
+                font-size: 10.5pt;
+                line-height: 1.35;
                 break-inside: avoid;
                 page-break-inside: avoid;
                 overflow-wrap: anywhere;
             }
             .exam-text {
                 margin: 4px 0;
-                font-size: 11pt;
-                line-height: 1.4;
+                font-size: 10.5pt;
+                line-height: 1.35;
                 break-inside: avoid;
                 page-break-inside: avoid;
                 overflow-wrap: anywhere;
             }
             .sub-question-text {
                 margin: 3px 0 3px 12px;
-                font-size: 11pt;
-                line-height: 1.35;
+                font-size: 10.5pt;
+                line-height: 1.3;
                 break-inside: avoid;
                 page-break-inside: avoid;
                 overflow-wrap: anywhere;
             }
             .option-item {
                 margin: 3px 0 3px 12px;
-                font-size: 11pt;
-                line-height: 1.35;
+                font-size: 10.5pt;
+                line-height: 1.3;
                 display: inline-block;
-                margin-right: 15px;
+                margin-right: 12px;
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
@@ -430,48 +443,18 @@ function generatePrintTemplate(metadata, auditResults) {
                 padding-top: 5px;
             }
 
-            @media screen and (max-width: 800px) {
-                .exam-sheet {
-                    width: 100%;
-                    margin: 0;
-                    padding: 20px;
-                    box-shadow: none;
-                    border: none;
-                }
-                .two-column-zone {
-                    column-count: 1;
-                    column-rule: none;
-                }
-            }
-
             @media print {
-                @page {
-                    size: A4 portrait;
-                    margin: 10mm;
-                }
-                html, body {
-                    margin: 0;
-                    padding: 0;
-                    background: #fff;
-                    -webkit-print-color-adjust: exact;
-                    print-color-adjust: exact;
-                }
-                .officer-alert-box { display: none !important; }
                 .no-print { display: none !important; }
-                .exam-sheet {
-                    width: 100% !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                }
+                body { background: #fff !important; }
+                .exam-sheet { border: none !important; box-shadow: none !important; padding: 0 !important; }
             }
         </style>
     </head>
     <body>
-        <div class="no-print" style="position: fixed; top: 15px; right: 15px; z-index: 9999; display: flex; gap: 8px;">
-            <button onclick="window.print()" style="background-color: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif;">Print</button>
-            <button onclick="window.close()" style="background-color: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif;">Close</button>
+        <!-- Floating Manual Controls (Hidden automatically during print) -->
+        <div class="no-print" style="position: fixed; top: 15px; right: 15px; z-index: 9999; display: flex; gap: 8px; background: rgba(255,255,255,0.9); padding: 8px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <button onclick="window.print()" style="background-color: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif;">🖨️ Print Document</button>
+            <button onclick="window.close()" style="background-color: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif;">✕ Close</button>
         </div>
 
         ${alertBanner}
@@ -502,8 +485,17 @@ function generatePrintTemplate(metadata, auditResults) {
 
             ${auditResults.html}
 
-            <div class="page-footer">TNSS - (${metadata.grade} ${metadata.subject}) Page 1</div>
+            <div class="page-footer">TNSS - (${metadata.grade} ${metadata.subject})</div>
         </div>
+
+        <script>
+            // Automatically trigger the standard browser print dialog on load
+            window.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    window.print();
+                }, 500);
+            });
+        </script>
     </body>
     </html>
     `;
@@ -512,6 +504,7 @@ function generatePrintTemplate(metadata, auditResults) {
 module.exports = {
     extractTextFromDocx,
     extractTextFromDocxBuffer,
+    extractTextFromPdfBuffer,
     optimizeExamText,
     generatePrintTemplate,
 };
