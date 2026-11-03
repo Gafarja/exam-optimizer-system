@@ -15,7 +15,6 @@
         h1 { color: #1F4E30; margin: 0; font-size: 24px; }
         .logout-btn { background-color: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; }
         .install-btn { background: #1F4E30; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; display: none; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .form-group { display: flex; flex-direction: column; }
         label { margin-bottom: 6px; color: #475569; font-weight: 500; font-size: 14px; }
         select, input[type="file"] { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; width: 100%; box-sizing: border-box; }
@@ -39,8 +38,7 @@
         @media (max-width: 768px) {
             body { padding: 10px; }
             .dashboard-container { padding: 15px; margin: 10px auto; }
-            .form-grid, .doc-row-grid { grid-template-columns: 1fr; gap: 12px; }
-            .doc-row-grid .form-group[style*="grid-column"] { grid-column: span 1 !important; }
+            .doc-row-grid { grid-template-columns: 1fr; gap: 12px; }
             .header { align-items: flex-start; gap: 12px; }
         }
     </style>
@@ -122,6 +120,7 @@
         }
 
         function subjectsForClass(className) {
+            if (!className) return [];
             if (className === 'JSS 3') return customCurriculum.JSS3_TRADITIONAL;
             if (className.startsWith('JSS')) return customCurriculum.JSS_NEW;
             return customCurriculum.SSS;
@@ -184,15 +183,11 @@
                 uploadStatus.textContent = 'Choose at least one .docx file first.';
                 return;
             }
+
             const cards = Array.from(rowsContainer.querySelectorAll('.doc-row'));
-            const jobs = selectedFiles.map((file, index) => {
+            const documentMetadata = selectedFiles.map((file, index) => {
                 const card = cards[index];
-                if (!card) {
-                    return Promise.resolve({ file, success: false, error: 'Missing metadata row for file.' });
-                }
-                if (!file.name.toLowerCase().endsWith('.docx')) {
-                    return Promise.resolve({ file, success: false, error: 'Only .docx documents are allowed.' });
-                }
+                if (!card) throw new Error('Missing metadata row for file.');
                 const metadata = {
                     subject: card.querySelector(`[name="subject_${index}"]`).value,
                     grade: card.querySelector(`[name="grade_${index}"]`).value,
@@ -200,38 +195,39 @@
                     term: card.querySelector(`[name="term_${index}"]`).value,
                     duration: card.querySelector(`[name="duration_${index}"]`).value
                 };
-                const invalid = Object.values(metadata).some(value => !value);
-                if (invalid) {
-                    return Promise.resolve({ file, success: false, error: 'Please complete all fields for each selected document.' });
+                if (Object.values(metadata).some(value => !value)) {
+                    throw new Error(`Please complete all fields for ${file.name}.`);
                 }
-                const body = new FormData();
-                body.append('examFile', file, file.name);
-                Object.entries(metadata).forEach(([key, value]) => body.append(key, value));
-                return fetch('/api/upload-exam', { method: 'POST', body })
-                    .then(async response => {
-                        if (response.ok) return { file, success: true };
-                        const message = (await response.text()).replace(/<[^>]*>/g, ' ').trim();
-                        return { file, success: false, error: message || `Server returned ${response.status}.` };
-                    })
-                    .catch(error => ({ file, success: false, error: error.message }));
+                return metadata;
             });
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => formData.append('examFiles', file, file.name));
+            formData.append('documents', JSON.stringify(documentMetadata));
 
             submitButton.disabled = true;
             uploadStatus.textContent = `Uploading ${selectedFiles.length} document(s)…`;
-            const results = await Promise.all(jobs);
-            const succeeded = results.filter(result => result.success);
-            const failed = results.filter(result => !result.success);
-            submitButton.disabled = false;
-            if (failed.length === 0) {
-                uploadStatus.textContent = `Successfully uploaded all ${succeeded.length} document(s).`;
-            } else {
-                uploadStatus.textContent = `${succeeded.length} uploaded; ${failed.length} failed: ` + failed.map(result => `${result.file.name} (${result.error})`).join('; ');
-            }
-            if (succeeded.length) loadHistory();
-            if (succeeded.length === selectedFiles.length) {
+
+            try {
+                const response = await fetch('/api/upload-exam', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.error || 'Upload failed.');
+                }
+
+                uploadStatus.textContent = result.message || `Successfully uploaded ${result.uploaded?.length || selectedFiles.length} document(s).`;
                 selectedFiles = [];
                 fileInput.value = '';
                 renderDocumentRows();
+                loadHistory();
+            } catch (error) {
+                uploadStatus.textContent = error.message;
+            } finally {
+                submitButton.disabled = false;
             }
         });
 

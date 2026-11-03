@@ -135,56 +135,104 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
-    const { subject, grade, term, session_year, duration, teacherName } = req.body;
-    const file = req.file;
+function sanitizeFileName(name) {
+    return String(name || 'document').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
 
-    if (!file) return res.status(400).send('Missing uploaded document file target attachment.');
-
-    if (!file.originalname.toLowerCase().endsWith('.docx')) {
-        return res.status(400).send(`
-            <div style="text-align:center; font-family:Arial; margin-top:50px; padding:20px;">
-                <h2 style="color:red;">Invalid File Format</h2>
-                <p>Only Microsoft Word documents (.docx) are allowed. Please convert your file and try again.</p>
-                <a href="/teacher.html" style="color:#2563eb; font-weight:bold; text-decoration:none;">Go Back</a>
-            </div>
-        `);
-    }
-
+app.post('/api/upload-exam', upload.any(), async (req, res) => {
     try {
+        const files = req.files || [];
+        let metadataList = [];
+
+        if (req.body.documents) {
+            metadataList = JSON.parse(req.body.documents);
+        } else if (files.length > 0) {
+            metadataList = files.map((file, index) => ({
+                subject: req.body[`subject_${index}`] || req.body.subject,
+                grade: req.body[`grade_${index}`] || req.body.grade,
+                session_year: req.body[`session_year_${index}`] || req.body.session_year,
+                term: req.body[`term_${index}`] || req.body.term,
+                duration: req.body[`duration_${index}`] || req.body.duration
+            }));
+        } else if (req.file) {
+            metadataList = [{
+                subject: req.body.subject,
+                grade: req.body.grade,
+                session_year: req.body.session_year,
+                term: req.body.term,
+                duration: req.body.duration
+            }];
+        }
+
+        if (!files.length) {
+            return res.status(400).json({ error: 'No document files uploaded.' });
+        }
+
+        if (files.length !== metadataList.length) {
+            return res.status(400).json({ error: 'Document metadata does not match uploaded files.' });
+        }
+
         const tId = activeUserProfile ? activeUserProfile.id : '00000000-0000-0000-0000-000000000000';
-        const tName = activeUserProfile?.user_metadata?.full_name || teacherName || activeUserProfile?.email || 'The Noble Standard Teacher';
-        const storageFileName = `${Date.now()}-${file.originalname}`;
+        const tName = activeUserProfile?.user_metadata?.full_name || activeUserProfile?.email || 'The Noble Standard Teacher';
 
-        const { error: storageError } = await supabase.storage.from('exams').upload(storageFileName, file.buffer, {
-            contentType: file.mimetype,
-            upsert: true
+        const uploadedRecords = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const meta = metadataList[i] || {};
+            const { subject, grade, term, session_year, duration } = meta;
+
+            if (!file.originalname || !file.originalname.toLowerCase().endsWith('.docx')) {
+                return res.status(400).json({ error: `Invalid file format: ${file.originalname || 'unknown file'}. Only .docx files are allowed.` });
+            }
+
+            if (!subject || !grade || !term || !session_year || !duration) {
+                return res.status(400).json({ error: `Missing metadata for ${file.originalname}. Please complete class, subject, session, term, and duration.` });
+            }
+
+            const storageFileName = `${Date.now()}-${i}-${sanitizeFileName(file.originalname)}`;
+            const { error: storageError } = await supabase.storage.from('exams').upload(storageFileName, file.buffer, {
+                contentType: file.mimetype,
+                upsert: true
+            });
+
+            if (storageError) {
+                throw new Error('Supabase Storage Upload Error: ' + storageError.message);
+            }
+
+            const { error: insertError } = await supabase.from('exams').insert([{
+                teacher_id: tId,
+                teacher_name: tName,
+                subject,
+                grade,
+                term,
+                duration,
+                session_year,
+                file_path: storageFileName
+            }]);
+
+            if (insertError) {
+                throw new Error('Supabase Database Insert Error: ' + insertError.message);
+            }
+
+            uploadedRecords.push({
+                fileName: file.originalname,
+                subject,
+                grade,
+                term,
+                session_year,
+                duration
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: `Successfully uploaded ${uploadedRecords.length} document(s).`,
+            uploaded: uploadedRecords
         });
-
-        if (storageError) throw new Error('Supabase Storage Upload Error: ' + storageError.message);
-
-        const { error: insertError } = await supabase.from('exams').insert([{
-            teacher_id: tId,
-            teacher_name: tName,
-            subject,
-            grade,
-            term,
-            duration,
-            session_year,
-            file_path: storageFileName
-        }]);
-
-        if (insertError) throw new Error('Supabase Database Insert Error: ' + insertError.message);
-
-        res.send(`
-            <script>
-                alert("Exam paper compiled and submitted successfully!");
-                window.location.href = '/teacher.html';
-            </script>
-        `);
     } catch (err) {
         console.error('Upload Pipeline Error:', err);
-        res.status(500).send(`Processing Pipeline Error: ${err.message}`);
+        return res.status(500).json({ error: err.message || 'Unexpected upload failure.' });
     }
 });
 
