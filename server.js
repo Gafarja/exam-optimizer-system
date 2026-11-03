@@ -17,24 +17,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 let activeUserToken = null;
 let activeUserProfile = null;
 
-// Use Memory Storage to handle file buffers directly for Supabase Cloud Storage
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ==========================================
-// 1. SIGN UP ENDPOINT (With Secure Admin Passkey Verification)
-// ==========================================
 app.post('/api/signup', async (req, res) => {
     const { fullname, email, password, role, adminCode } = req.body;
     try {
         let assignedRole = 'teacher';
 
-        // If they chose officer, verify the passkey
         if (role === 'officer') {
-            const secretPasskey = process.env.ADMIN_SECRET_CODE || 'NobleAdmin2026'; // Fallback code if not set in Render yet
+            const secretPasskey = process.env.ADMIN_SECRET_CODE || 'NobleAdmin2026';
             if (adminCode !== secretPasskey) {
                 return res.status(400).send(`
                     <div style="text-align:center; font-family:Arial; margin-top:50px; padding: 20px;">
@@ -48,18 +43,17 @@ app.post('/api/signup', async (req, res) => {
         }
 
         const { error } = await supabase.auth.signUp({
-            email: email,
-            password: password,
-            options: { 
-                data: { 
-                    full_name: fullname, 
-                    user_role: assignedRole 
-                } 
+            email,
+            password,
+            options: {
+                data: {
+                    full_name: fullname,
+                    user_role: assignedRole
+                }
             }
         });
         if (error) throw error;
 
-        // Success response card with mobile responsiveness
         res.send(`
             <!DOCTYPE html>
             <html lang="en">
@@ -119,9 +113,6 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-// ==========================================
-// 2. LOGIN ENDPOINT
-// ==========================================
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -137,88 +128,114 @@ app.post('/api/login', async (req, res) => {
         } else if (role === 'officer') {
             res.redirect('/admin.html');
         } else {
-            res.send(`<h2>Unknown account role context structure detected.</h2>`);
+            res.send('<h2>Unknown account role context structure detected.</h2>');
         }
     } catch (err) {
         res.status(400).send(`<p style="color:red; font-family:Arial;">Login Error: ${err.message}</p>`);
     }
 });
 
-// ==========================================
-// 3. EXAM FILE UPLOAD PIPELINE (Supabase Cloud Storage)
-// ==========================================
-app.post('/api/upload-exam', upload.single('examFile'), async (req, res) => {
-    const { subject, grade, term, session_year, duration, teacherName } = req.body;
-    const file = req.file;
+function sanitizeFileName(name) {
+    return String(name || 'document').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
 
-    if (!file) return res.status(400).send('Missing uploaded document file target attachment.');
-
-    // 🔒 Enforce strict .docx file extension check (Feature 3)
-    if (!file.originalname.toLowerCase().endsWith('.docx')) {
-        return res.status(400).send(`
-            <div style="text-align:center; font-family:Arial; margin-top:50px; padding:20px;">
-                <h2 style="color:red;">Invalid File Format</h2>
-                <p>Only Microsoft Word documents (.docx) are allowed. Please convert your file and try again.</p>
-                <a href="/teacher.html" style="color:#2563eb; font-weight:bold; text-decoration:none;">Go Back</a>
-            </div>
-        `);
-    }
-
+app.post('/api/upload-exam', upload.any(), async (req, res) => {
     try {
-        // Securely resolve teacher ID and name with robust fallbacks
+        const files = req.files || [];
+        let metadataList = [];
+
+        if (req.body.documents) {
+            metadataList = JSON.parse(req.body.documents);
+        } else if (files.length > 0) {
+            metadataList = files.map((file, index) => ({
+                subject: req.body[`subject_${index}`] || req.body.subject,
+                grade: req.body[`grade_${index}`] || req.body.grade,
+                session_year: req.body[`session_year_${index}`] || req.body.session_year,
+                term: req.body[`term_${index}`] || req.body.term,
+                duration: req.body[`duration_${index}`] || req.body.duration
+            }));
+        } else if (req.file) {
+            metadataList = [{
+                subject: req.body.subject,
+                grade: req.body.grade,
+                session_year: req.body.session_year,
+                term: req.body.term,
+                duration: req.body.duration
+            }];
+        }
+
+        if (!files.length) {
+            return res.status(400).json({ error: 'No document files uploaded.' });
+        }
+
+        if (files.length !== metadataList.length) {
+            return res.status(400).json({ error: 'Document metadata does not match uploaded files.' });
+        }
+
         const tId = activeUserProfile ? activeUserProfile.id : '00000000-0000-0000-0000-000000000000';
-        const tName = activeUserProfile?.user_metadata?.full_name || teacherName || activeUserProfile?.email || 'The Noble Standard Teacher';
+        const tName = activeUserProfile?.user_metadata?.full_name || activeUserProfile?.email || 'The Noble Standard Teacher';
 
-        // Unique file path name in Supabase storage bucket
-        const storageFileName = `${Date.now()}-${file.originalname}`;
+        const uploadedRecords = [];
 
-        // Upload buffer directly to Supabase Storage bucket 'exams'
-        const { error: storageError } = await supabase.storage
-            .from('exams')
-            .upload(storageFileName, file.buffer, {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const meta = metadataList[i] || {};
+            const { subject, grade, term, session_year, duration } = meta;
+
+            if (!file.originalname || !file.originalname.toLowerCase().endsWith('.docx')) {
+                return res.status(400).json({ error: `Invalid file format: ${file.originalname || 'unknown file'}. Only .docx files are allowed.` });
+            }
+
+            if (!subject || !grade || !term || !session_year || !duration) {
+                return res.status(400).json({ error: `Missing metadata for ${file.originalname}. Please complete class, subject, session, term, and duration.` });
+            }
+
+            const storageFileName = `${Date.now()}-${i}-${sanitizeFileName(file.originalname)}`;
+            const { error: storageError } = await supabase.storage.from('exams').upload(storageFileName, file.buffer, {
                 contentType: file.mimetype,
                 upsert: true
             });
 
-        if (storageError) {
-            throw new Error("Supabase Storage Upload Error: " + storageError.message);
+            if (storageError) {
+                throw new Error('Supabase Storage Upload Error: ' + storageError.message);
+            }
+
+            const { error: insertError } = await supabase.from('exams').insert([{
+                teacher_id: tId,
+                teacher_name: tName,
+                subject,
+                grade,
+                term,
+                duration,
+                session_year,
+                file_path: storageFileName
+            }]);
+
+            if (insertError) {
+                throw new Error('Supabase Database Insert Error: ' + insertError.message);
+            }
+
+            uploadedRecords.push({
+                fileName: file.originalname,
+                subject,
+                grade,
+                term,
+                session_year,
+                duration
+            });
         }
 
-        // Save record to Supabase database table 'exams'
-        const { error: insertError } = await supabase.from('exams').insert([{
-            teacher_id: tId,
-            teacher_name: tName,
-            subject: subject,
-            grade: grade,
-            term: term,
-            duration: duration,
-            session_year: session_year,
-            file_path: storageFileName
-        }]);
-
-        if (insertError) {
-            throw new Error("Supabase Database Insert Error: " + insertError.message);
-        }
-
-        console.log("✅ Exam record successfully saved to Supabase database & storage!");
-
-        // Trigger success message popup alert and redirect back to teacher portal dashboard
-        res.send(`
-            <script>
-                alert("Exam paper compiled and submitted successfully!");
-                window.location.href = '/teacher.html';
-            </script>
-        `);
-
+        return res.json({
+            success: true,
+            message: `Successfully uploaded ${uploadedRecords.length} document(s).`,
+            uploaded: uploadedRecords
+        });
     } catch (err) {
-        console.error("Upload Pipeline Error:", err);
-        res.status(500).send(`Processing Pipeline Error: ${err.message}`);
+        console.error('Upload Pipeline Error:', err);
+        return res.status(500).json({ error: err.message || 'Unexpected upload failure.' });
     }
 });
 
-// ==========================================
-// 4. TEACHER WORKSPACE HISTORY TRACKING LOG
-// ==========================================
 app.get('/api/teacher-history', async (req, res) => {
     if (!activeUserProfile) return res.json([]);
     try {
@@ -235,9 +252,6 @@ app.get('/api/teacher-history', async (req, res) => {
     }
 });
 
-// ==========================================
-// 5. EXAM OFFICER DASHBOARD QUEUE ENDPOINTS
-// ==========================================
 const fetchAllExams = async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -248,7 +262,7 @@ const fetchAllExams = async (req, res) => {
         if (error) throw error;
         res.json(data || []);
     } catch (err) {
-        console.error("Dashboard fetch error:", err.message);
+        console.error('Dashboard fetch error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 };
@@ -258,14 +272,11 @@ app.get('/api/exams', fetchAllExams);
 app.get('/api/admin/exams', fetchAllExams);
 app.get('/api/admin-logs', fetchAllExams);
 
-// ==========================================
-// 6. TEACHER DELETE SUBMISSION ENDPOINT
-// ==========================================
 app.post('/api/delete-exam', async (req, res) => {
     const { examId } = req.body;
 
     if (!activeUserProfile) {
-        return res.status(401).json({ success: false, error: "Unauthorized access profile." });
+        return res.status(401).json({ success: false, error: 'Unauthorized access profile.' });
     }
 
     try {
@@ -275,14 +286,13 @@ app.post('/api/delete-exam', async (req, res) => {
             .eq('id', examId)
             .single();
 
-        if (fetchError || !examData) throw new Error("Submission record not found.");
+        if (fetchError || !examData) throw new Error('Submission record not found.');
 
         const userRole = activeUserProfile?.user_metadata?.user_role;
         if (examData.teacher_id !== activeUserProfile.id && userRole !== 'officer') {
-            return res.status(430).json({ success: false, error: "Permission denied." });
+            return res.status(430).json({ success: false, error: 'Permission denied.' });
         }
 
-        // Remove file from Supabase Storage bucket
         await supabase.storage.from('exams').remove([examData.file_path]);
 
         const { error: deleteError } = await supabase
@@ -292,16 +302,13 @@ app.post('/api/delete-exam', async (req, res) => {
 
         if (deleteError) throw deleteError;
 
-        res.json({ success: true, message: "Submission deleted cleanly." });
+        res.json({ success: true, message: 'Submission deleted cleanly.' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// ==========================================
-// 7. ADMIN DELETE SUBMISSION ENDPOINT
-// ==========================================
 app.post('/api/admin/delete-exam', async (req, res) => {
     const { examId } = req.body;
     try {
@@ -322,16 +329,13 @@ app.post('/api/admin/delete-exam', async (req, res) => {
 
         if (deleteError) throw deleteError;
 
-        res.json({ success: true, message: "Exam paper deleted successfully from admin queue." });
+        res.json({ success: true, message: 'Exam paper deleted successfully from admin queue.' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// ==========================================
-// 8. EXAM OFFICER DOWNLOAD & OPTIMIZE PIPELINE ROUTE
-// ==========================================
 app.get('/api/download/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -345,7 +349,6 @@ app.get('/api/download/:id', async (req, res) => {
             return res.status(404).send('Exam submission record not found in the database.');
         }
 
-        // Download file blob buffer from Supabase Storage bucket
         const { data: fileBlob, error: downloadError } = await supabase.storage
             .from('exams')
             .download(exam.file_path);
@@ -359,29 +362,24 @@ app.get('/api/download/:id', async (req, res) => {
 
         const rawText = await formatter.extractTextFromDocxBuffer(fileBuffer);
         const auditResults = formatter.optimizeExamText(rawText);
-        
         const htmlOutput = formatter.generatePrintTemplate(
-            { 
-                subject: exam.subject, 
-                grade: exam.grade, 
-                term: exam.term, 
-                session_year: exam.session_year, 
-                duration: exam.duration 
+            {
+                subject: exam.subject,
+                grade: exam.grade,
+                term: exam.term,
+                session_year: exam.session_year,
+                duration: exam.duration
             },
             auditResults
         );
 
         res.send(htmlOutput);
-
     } catch (err) {
-        console.error("Optimization pipeline error:", err);
+        console.error('Optimization pipeline error:', err);
         res.status(500).send(`Error processing exam document: ${err.message}`);
     }
 });
 
-// ==========================================
-// 9. EXAM OFFICER BULK DOWNLOAD / PRINT QUEUE ENDPOINT (Feature 2)
-// ==========================================
 app.post('/api/admin/bulk-download', async (req, res) => {
     const { examIds } = req.body;
     if (!examIds || !Array.isArray(examIds) || examIds.length === 0) {
@@ -389,8 +387,7 @@ app.post('/api/admin/bulk-download', async (req, res) => {
     }
 
     try {
-        let combinedHtml = `
-            <!DOCTYPE html>
+        let combinedHtml = `<!DOCTYPE html>
             <html lang="en">
             <head>
                 <meta charset="UTF-8">
@@ -404,9 +401,7 @@ app.post('/api/admin/bulk-download', async (req, res) => {
                     }
                 </style>
             </head>
-            <body>
-                <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #2563eb; color: #fff; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="window.print()">Print All Papers</div>
-        `;
+            <body>`;
 
         for (const id of examIds) {
             const { data: exam, error } = await supabase
@@ -425,29 +420,23 @@ app.post('/api/admin/bulk-download', async (req, res) => {
 
             const arrayBuffer = await fileBlob.arrayBuffer();
             const fileBuffer = Buffer.from(arrayBuffer);
-
             const rawText = await formatter.extractTextFromDocxBuffer(fileBuffer);
             const auditResults = formatter.optimizeExamText(rawText);
-            
-            const singleHtml = formatter.generatePrintTemplate(
-                { 
-                    subject: exam.subject, 
-                    grade: exam.grade, 
-                    term: exam.term, 
-                    session_year: exam.session_year, 
-                    duration: exam.duration 
-                },
-                auditResults
-            );
+            const singleHtml = formatter.generatePrintTemplate({
+                subject: exam.subject,
+                grade: exam.grade,
+                term: exam.term,
+                session_year: exam.session_year,
+                duration: exam.duration
+            }, auditResults);
 
             combinedHtml += `<div class="exam-page">${singleHtml}</div>`;
         }
 
         combinedHtml += `</body></html>`;
         res.send(combinedHtml);
-
     } catch (err) {
-        console.error("Bulk download error:", err);
+        console.error('Bulk download error:', err);
         res.status(500).send(`Bulk download processing error: ${err.message}`);
     }
 });
@@ -455,3 +444,4 @@ app.post('/api/admin/bulk-download', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
